@@ -1,0 +1,313 @@
+import type { Tables } from "@/integrations/supabase/types";
+import { addMonths, daysBetween, monthsBetween, yearsBetween } from "./dates";
+import { fdValue, growMonthly, projectLoan, type LoanProjection } from "./finance";
+import { totalUnits, type InstallmentStatus } from "./sip";
+
+export type Member = Tables<"members">;
+export type Holding = Tables<"holdings">;
+export type Installment = Tables<"sip_installments">;
+export type Loan = Tables<"loans">;
+export type LoanEvent = Tables<"loan_events">;
+export type Policy = Tables<"policies">;
+
+export interface RawPortfolio {
+  members: Member[];
+  holdings: Holding[];
+  installments: Installment[];
+  loans: Loan[];
+  loanEvents: LoanEvent[];
+  policies: Policy[];
+}
+
+export type Category =
+  | "mutual_fund" | "equity" | "rsu" | "epfo" | "ppf" | "nps" | "fd" | "life_policy"
+  | "real_estate" | "gold" | "cash" | "vehicle" | "private_equity" | "receivable";
+
+export const CATEGORY_LABEL: Record<Category, string> = {
+  mutual_fund: "Mutual Funds",
+  equity: "Equities / Demat",
+  rsu: "RSUs",
+  epfo: "EPFO",
+  ppf: "PPF",
+  nps: "NPS",
+  fd: "Fixed Deposits",
+  life_policy: "Life Policies",
+  real_estate: "Real Estate",
+  gold: "Gold & SGBs",
+  cash: "Cash & Bank",
+  vehicle: "Vehicles",
+  private_equity: "Private Equity",
+  receivable: "Private Receivables",
+};
+
+export const FINANCIAL: Category[] = ["mutual_fund", "equity", "rsu", "epfo", "fd", "ppf", "nps", "life_policy"];
+export const MARKET: Category[] = ["mutual_fund", "equity", "rsu"];
+export const GUARANTEED: Category[] = ["epfo", "ppf", "nps", "fd", "life_policy"];
+export const TANGIBLE: Category[] = ["real_estate", "gold", "cash", "vehicle", "private_equity", "receivable"];
+
+export const LOAN_KIND_LABEL: Record<string, string> = {
+  home: "Home Loan",
+  vehicle: "Vehicle Loan",
+  education: "Education Loan",
+  personal: "Personal Loan",
+  other: "Other Liability",
+};
+
+export interface ValuedHolding extends Holding {
+  cat: Category;
+  value: number;
+  dayChange: number;
+  totalUnits: number;
+  installments: Installment[];
+  /** For real estate linked to a loan: market value minus loan balance. */
+  netEquity: number | null;
+  unvestedValue: number;
+  maturityValue: number | null;
+}
+
+export interface ValuedLoan extends Loan {
+  projection: LoanProjection;
+  events: LoanEvent[];
+  repaidPct: number;
+}
+
+export interface Totals {
+  gross: number;
+  liabilities: number;
+  net: number;
+  sipIn: number;
+  emiOut: number;
+  dayChange: number;
+}
+
+const n = (v: number | null | undefined) => Number(v ?? 0);
+
+export function valueHolding(h: Holding, installments: Installment[], today: string, fx: number) {
+  const cat = h.category as Category;
+  let value = n(h.amount);
+  let dayChange = 0;
+  let units = 0;
+  let unvestedValue = 0;
+  let maturityValue: number | null = null;
+  const toInr = (v: number) => (h.price_currency === "USD" ? v * fx : v);
+
+  switch (cat) {
+    case "mutual_fund": {
+      units = totalUnits(n(h.units), installments as { status: InstallmentStatus; units: number }[]);
+      value = units * n(h.nav);
+      if (h.prev_nav) dayChange = units * (n(h.nav) - n(h.prev_nav));
+      break;
+    }
+    case "equity":
+      if (h.quantity && h.unit_price) value = toInr(n(h.quantity) * n(h.unit_price));
+      break;
+    case "rsu":
+      value = toInr(n(h.quantity) * n(h.unit_price));
+      unvestedValue = toInr(n(h.unvested_quantity) * n(h.unit_price));
+      break;
+    case "epfo":
+    case "nps":
+      value = growMonthly(n(h.amount), n(h.rate), n(h.monthly_contribution), monthsBetween(h.as_of, today));
+      break;
+    case "ppf": {
+      // Interest is credited once a year: compound whole years, simple interest for the running year.
+      const years = Math.max(0, yearsBetween(h.as_of, today));
+      const whole = Math.floor(years);
+      const r = n(h.rate) / 100;
+      const months = monthsBetween(h.as_of, today);
+      value = n(h.amount) * (1 + r) ** whole * (1 + r * (years - whole)) + n(h.monthly_contribution) * months;
+      break;
+    }
+    case "fd": {
+      const start = h.start_date ?? h.as_of;
+      const end = h.maturity_date && h.maturity_date < today ? h.maturity_date : today;
+      value = fdValue(n(h.amount), n(h.rate), yearsBetween(start, end));
+      if (h.maturity_date) maturityValue = fdValue(n(h.amount), n(h.rate), yearsBetween(start, h.maturity_date));
+      break;
+    }
+    case "vehicle":
+      value = n(h.amount) * (1 - n(h.rate) / 100) ** Math.max(0, yearsBetween(h.as_of, today));
+      break;
+    case "receivable":
+      if (h.rate) value = n(h.amount) * (1 + (n(h.rate) / 100) * Math.max(0, yearsBetween(h.as_of, today)));
+      break;
+    default:
+      break;
+  }
+  return { cat, value, dayChange, units, unvestedValue, maturityValue };
+}
+
+export interface Portfolio {
+  members: Member[];
+  holdings: ValuedHolding[];
+  loans: ValuedLoan[];
+  policies: Policy[];
+  totals: Totals;
+  totalsByMember: Record<string, Totals>;
+}
+
+export function buildPortfolio(raw: RawPortfolio, today: string, fx: number): Portfolio {
+  const instByHolding = new Map<string, Installment[]>();
+  for (const i of raw.installments) {
+    const list = instByHolding.get(i.holding_id) ?? [];
+    list.push(i);
+    instByHolding.set(i.holding_id, list);
+  }
+  for (const list of instByHolding.values()) list.sort((a, b) => (a.due_date < b.due_date ? 1 : -1));
+
+  const loans: ValuedLoan[] = raw.loans.map((l) => {
+    const projection = projectLoan(
+      { outstanding: n(l.outstanding), rate: n(l.rate), emi: n(l.emi), emi_day: l.emi_day, as_of: l.as_of },
+      today,
+    );
+    const original = n(l.original_principal);
+    return {
+      ...l,
+      projection,
+      events: raw.loanEvents.filter((e) => e.loan_id === l.id).sort((a, b) => (a.event_date < b.event_date ? 1 : -1)),
+      repaidPct: original > 0 ? Math.max(0, Math.min(100, ((original - projection.balance) / original) * 100)) : 0,
+    };
+  });
+  const loanById = new Map(loans.map((l) => [l.id, l]));
+
+  const holdings: ValuedHolding[] = raw.holdings.map((h) => {
+    const installments = instByHolding.get(h.id) ?? [];
+    const v = valueHolding(h, installments, today, fx);
+    const linked = h.linked_loan_id ? loanById.get(h.linked_loan_id) : undefined;
+    return {
+      ...h,
+      cat: v.cat,
+      value: v.value,
+      dayChange: v.dayChange,
+      totalUnits: v.units,
+      installments,
+      netEquity: linked ? v.value - linked.projection.balance : null,
+      unvestedValue: v.unvestedValue,
+      maturityValue: v.maturityValue,
+    };
+  });
+
+  const totalsFor = (memberId: string | null): Totals => {
+    const hs = holdings.filter((h) => !memberId || h.member_id === memberId);
+    const ls = loans.filter((l) => !memberId || l.member_id === memberId);
+    const gross = hs.reduce((s, h) => s + h.value, 0);
+    const liabilities = ls.reduce((s, l) => s + l.projection.balance, 0);
+    return {
+      gross,
+      liabilities,
+      net: gross - liabilities,
+      sipIn: hs.reduce((s, h) => (h.cat === "mutual_fund" && h.sip_active ? s + n(h.sip_amount) : s), 0),
+      emiOut: ls.reduce((s, l) => (l.projection.balance > 0 ? s + n(l.emi) : s), 0),
+      dayChange: hs.reduce((s, h) => s + h.dayChange, 0),
+    };
+  };
+
+  const totalsByMember: Record<string, Totals> = {};
+  for (const m of raw.members) totalsByMember[m.id] = totalsFor(m.id);
+
+  return {
+    members: [...raw.members].sort((a, b) => a.sort - b.sort),
+    holdings,
+    loans,
+    policies: raw.policies,
+    totals: totalsFor(null),
+    totalsByMember,
+  };
+}
+
+/** Narrow a portfolio to one household member ("all" keeps everyone). */
+export function scopePortfolio(p: Portfolio, profile: string) {
+  if (profile === "all") return { holdings: p.holdings, loans: p.loans, policies: p.policies, totals: p.totals };
+  return {
+    holdings: p.holdings.filter((h) => h.member_id === profile),
+    loans: p.loans.filter((l) => l.member_id === profile),
+    policies: p.policies.filter((x) => x.member_id === profile),
+    totals: p.totalsByMember[profile] ?? p.totals,
+  };
+}
+
+export type RenewalKind = "policy" | "fd" | "premium" | "maturity";
+
+export interface RenewalItem {
+  key: string;
+  kind: RenewalKind;
+  title: string;
+  detail: string;
+  date: string;
+  days: number;
+  amount: number;
+  memberId: string;
+  sourceId: string;
+  /** True for money coming in (maturities). */
+  inflow: boolean;
+}
+
+export function renewals(holdings: ValuedHolding[], policies: Policy[], today: string): RenewalItem[] {
+  const items: RenewalItem[] = [];
+  for (const p of policies) {
+    items.push({
+      key: `p-${p.id}`,
+      kind: "policy",
+      title: p.name,
+      detail: p.kind === "term" ? "Term premium due" : p.kind === "health" ? "Health renewal" : "Premium due",
+      date: p.next_due,
+      days: daysBetween(today, p.next_due),
+      amount: n(p.premium),
+      memberId: p.member_id,
+      sourceId: p.id,
+      inflow: false,
+    });
+  }
+  for (const h of holdings) {
+    if (h.cat === "fd" && h.maturity_date) {
+      items.push({
+        key: `fd-${h.id}`,
+        kind: "fd",
+        title: `${h.name} maturity`,
+        detail: `${n(h.rate).toFixed(2)}% p.a.`,
+        date: h.maturity_date,
+        days: daysBetween(today, h.maturity_date),
+        amount: h.maturityValue ?? h.value,
+        memberId: h.member_id,
+        sourceId: h.id,
+        inflow: true,
+      });
+    }
+    if (h.cat === "life_policy") {
+      if (h.next_due) {
+        items.push({
+          key: `lp-${h.id}`,
+          kind: "premium",
+          title: h.name,
+          detail: "Premium due",
+          date: h.next_due,
+          days: daysBetween(today, h.next_due),
+          amount: n(h.premium),
+          memberId: h.member_id,
+          sourceId: h.id,
+          inflow: false,
+        });
+      }
+      if (h.maturity_date) {
+        items.push({
+          key: `lm-${h.id}`,
+          kind: "maturity",
+          title: h.name,
+          detail: "Policy maturity",
+          date: h.maturity_date,
+          days: daysBetween(today, h.maturity_date),
+          amount: h.value,
+          memberId: h.member_id,
+          sourceId: h.id,
+          inflow: true,
+        });
+      }
+    }
+  }
+  return items.sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+
+export function advanceDue(date: string, frequency: string) {
+  const step = frequency === "monthly" ? 1 : frequency === "quarterly" ? 3 : frequency === "half_yearly" ? 6 : 12;
+  return addMonths(date, step);
+}

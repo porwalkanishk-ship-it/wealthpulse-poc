@@ -1,0 +1,210 @@
+/*
+ * Tailwind v4 entry: config lives here, with no tailwind.config.js or PostCSS plugin.
+ * Keep every @import in this top block. Web fonts load via <link> in src/routes/__root.tsx.
+ */
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* WealthPulse · Bloomberg Slate (terminal-dark). Dark-only terminal look. */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Kit tokens */
+  --color-ink: var(--ink);
+  --color-panel: var(--panel);
+  --color-line: var(--line);
+  --color-mut: var(--mut);
+  --color-em: var(--em);
+  --color-em-hi: var(--em-hi);
+  --color-co: var(--co);
+  --color-chrome: var(--chrome);
+  --color-hi: var(--hi);
+  --color-soft: var(--soft);
+  --color-raised: var(--raised);
+  --color-dim: var(--dim);
+  --color-sky: var(--sky);
+  --color-amber: var(--amber);
+  --color-slate: var(--slate);
+
+  /* shadcn mapping */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+}
+
+:root {
+  --radius: 6px;
+
+  --ink: oklch(0.168 0.018 263.9);      /* #0B0F17 */
+  --panel: oklch(0.205 0.026 263.8);    /* #111723 */
+  --line: oklch(0.279 0.037 260.0);     /* #1E293B */
+  --mut: oklch(0.632 0.038 257.9);      /* #7C8BA1 */
+  --em: oklch(0.696 0.149 162.5);       /* #10B981 */
+  --em-hi: oklch(0.773 0.153 163.2);    /* #34D399 */
+  --co: oklch(0.637 0.208 25.3);        /* #EF4444 */
+  --chrome: oklch(0.144 0.014 262.1);   /* #070A10 */
+  --hi: oklch(1 0 0);                   /* figures */
+  --soft: oklch(0.869 0.02 252.9);      /* #CBD5E1 */
+  --raised: oklch(0.279 0.037 260.0);   /* #1E293B surface chips */
+  --dim: oklch(0.446 0.037 257.3);      /* #475569 */
+  --sky: oklch(0.754 0.139 232.7);
+  --amber: oklch(0.837 0.164 84.4);
+  --slate: oklch(0.554 0.041 257.4);
+
+  --background: var(--ink);
+  --foreground: oklch(0.929 0.013 255.5); /* #E2E8F0 */
+  --card: var(--panel);
+  --card-foreground: var(--foreground);
+  --popover: var(--panel);
+  --popover-foreground: var(--foreground);
+  --primary: var(--em);
+  --primary-foreground: var(--ink);
+  --secondary: var(--panel);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--raised);
+  --muted-foreground: var(--mut);
+  --accent: var(--raised);
+  --accent-foreground: var(--foreground);
+  --destructive: var(--co);
+  --destructive-foreground: var(--hi);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--em);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    color-scheme: dark;
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Numeric figures: JetBrains Mono with tabular numerals */
+@utility n {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@utility glow-em {
+  box-shadow: 0 0 14px color-mix(in oklab, var(--em) 67%, transparent);
+}
+
+@utility glow-em-soft {
+  box-shadow: 0 0 12px color-mix(in oklab, var(--em) 33%, transparent);
+}
+
+@keyframes wp-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--em) 60%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--em) 0%, transparent);
+  }
+}
+
+@utility pulse {
+  animation: wp-pulse 1.6s infinite;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Range slider in kit style */
+input[type="range"].wp-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 16px;
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"].wp-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--em) 0%,
+    var(--em) var(--fill, 0%),
+    var(--line) var(--fill, 0%),
+    var(--line) 100%
+  );
+}
+input[type="range"].wp-range::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--line);
+}
+input[type="range"].wp-range::-moz-range-progress {
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--em);
+}
+input[type="range"].wp-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border-radius: 9999px;
+  background: var(--em);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--em) 25%, transparent);
+}
+input[type="range"].wp-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--em);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--em) 25%, transparent);
+}
+input[type="range"].wp-range:focus-visible {
+  outline: none;
+}
+input[type="range"].wp-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 6px color-mix(in oklab, var(--em) 40%, transparent);
+}
+
+/* Third-party sign-in button brand colours (Google dark theme) */
+:root {
+  --google-bg: oklch(0.183 0.002 286);
+  --google-border: oklch(0.65 0.005 145);
+  --google-text: oklch(0.91 0.004 286);
+}
