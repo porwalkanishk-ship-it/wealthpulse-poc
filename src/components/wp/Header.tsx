@@ -1,6 +1,8 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
-import { LogOut, RefreshCw, Upload } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { notificationsQuery } from "@/lib/household";
+import { Bell, LogOut, RefreshCw, Upload } from "lucide-react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAppState } from "@/lib/app-state";
 import { usePortfolio } from "@/lib/data";
@@ -54,6 +56,65 @@ export function ProfileSwitcher({ className }: { className?: string }) {
   );
 }
 
+function NotificationBell() {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [openMenu, setOpenMenu] = useState(false);
+  const { data } = useQuery(notificationsQuery);
+  const items = data ?? [];
+  const unread = items.filter((n) => !n.read_at).length;
+  async function markAllRead() {
+    await supabase.from("notifications").update({ read_at: new Date().toISOString() }).is("read_at", null);
+    await qc.invalidateQueries({ queryKey: ["notifications"] });
+  }
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
+        onClick={() => setOpenMenu((v) => !v)}
+        className="relative h-8 w-8 grid place-items-center rounded-[5px] border border-line text-mut hover:text-foreground"
+      >
+        <Bell className="w-4 h-4" aria-hidden="true" />
+        {unread ? <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-em text-ink text-[10px] font-semibold grid place-items-center">{unread}</span> : null}
+      </button>
+      {openMenu ? (
+        <div className="absolute right-0 mt-2 w-80 max-w-[85vw] bg-panel border border-line rounded-[6px] shadow-xl z-50">
+          <div className="flex items-center px-3 h-10 border-b border-line">
+            <span className="font-semibold text-hi">Notifications</span>
+            {unread ? (
+              <button type="button" className="ml-auto text-[11px] text-em" onClick={() => void markAllRead()}>
+                Mark all read
+              </button>
+            ) : null}
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {items.length === 0 ? <div className="p-4 text-mut">Nothing yet.</div> : null}
+            {items.map((n) => (
+              <button
+                key={n.id}
+                type="button"
+                className="block w-full text-left px-3 py-2.5 border-b border-line last:border-0 hover:bg-raised/60"
+                onClick={async () => {
+                  setOpenMenu(false);
+                  if (!n.read_at) {
+                    await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", n.id);
+                    void qc.invalidateQueries({ queryKey: ["notifications"] });
+                  }
+                  if (n.link && n.link.startsWith("/")) void navigate({ to: n.link });
+                }}
+              >
+                <div className={cn("text-[12.5px]", n.read_at ? "text-soft" : "text-hi font-medium")}>{n.title}</div>
+                {n.body ? <div className="text-[11.5px] text-mut mt-0.5">{n.body}</div> : null}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function CurrencyToggle() {
   const { currency, setCurrency } = useAppState();
   return (
@@ -83,6 +144,7 @@ export function Header() {
         <h1 className="sr-only">WealthPulse Terminal</h1>
         <ProfileSwitcher className="hidden md:flex" />
         <div className="ml-auto flex items-center gap-3">
+          <NotificationBell />
           <CurrencyToggle />
           <button
             type="button"
@@ -108,6 +170,7 @@ const TABS = [
   { to: "/loans", label: "Loans" },
   { to: "/renewals", label: "Renewals" },
   { to: "/insights", label: "Insights" },
+  { to: "/household", label: "Household" },
 ] as const;
 
 function fmtTime(d: Date) {

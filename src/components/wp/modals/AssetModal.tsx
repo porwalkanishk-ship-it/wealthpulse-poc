@@ -13,7 +13,7 @@ import { todayISO } from "@/lib/dates";
 import { CATEGORY_LABEL, FINANCIAL, TANGIBLE, type Category } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
 import { Btn, Field, Modal, SectionTitle, SelectInput, TextInput } from "../ui";
-import { DeleteButton, OwnerField, numStr, toNum, useDefaultOwner } from "./shared";
+import { DeleteButton, OwnerField, PrivateToggle, numStr, toNum, useDefaultOwner } from "./shared";
 
 interface Props {
   holdingId?: string | undefined;
@@ -67,6 +67,7 @@ export function AssetModal({ holdingId, category, onClose, onSaved }: Props) {
   const [cat, setCat] = useState<Category | null>(existing ? existing.cat : (category ?? null));
   const [picking, setPicking] = useState(!existing);
   const [owner, setOwner] = useState(existing?.owner_profile_id ?? defaultOwner);
+  const [hidden, setHidden] = useState(existing?.is_hidden ?? false);
   const [form, setForm] = useState<Form>(() => {
     if (!existing) return cat ? defaultsFor(cat) : {};
     return {
@@ -140,6 +141,7 @@ export function AssetModal({ holdingId, category, onClose, onSaved }: Props) {
       const nOrNull = (k: string) => (Number.isFinite(toNum(f(k))) ? toNum(f(k)) : null);
       const row: TablesInsert<"holdings"> = {
         owner_profile_id: owner,
+        is_hidden: hidden,
         category: cat,
         name: f("name").trim(),
         subtitle: f("subtitle").trim() || null,
@@ -182,6 +184,7 @@ export function AssetModal({ holdingId, category, onClose, onSaved }: Props) {
         ? await supabase.from("holdings").update(row).eq("id", existing.id)
         : await supabase.from("holdings").insert(row);
       if (error) throw error;
+      if (hidden && row.linked_loan_id) await supabase.from("loans").update({ is_hidden: true }).eq("id", row.linked_loan_id);
       await invalidate();
       toast.success(existing ? "Asset updated" : "Asset added");
       if (cat === "mutual_fund") onSaved();
@@ -270,6 +273,7 @@ export function AssetModal({ holdingId, category, onClose, onSaved }: Props) {
             </Field>
           )}
           <OwnerField value={owner} onChange={setOwner} />
+          <PrivateToggle value={hidden} onChange={setHidden} note={f("linked_loan_id") ? "The loan linked to this asset will be hidden too." : ""} />
           {cat !== "mutual_fund" ? (
             <Field label="Note">
               <TextInput sans value={f("subtitle")} onChange={set("subtitle")} placeholder="Optional" maxLength={80} />

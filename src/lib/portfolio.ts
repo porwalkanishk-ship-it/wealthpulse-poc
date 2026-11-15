@@ -149,6 +149,9 @@ export interface Portfolio {
   policies: Policy[];
   totals: Totals;
   totalsByProfile: Record<string, Totals>;
+  isPrivate: (x: { is_hidden: boolean; owner_profile_id: string | null }) => boolean;
+  /** Net value of your own items that are private and so left out of the household view. */
+  privateNet: number;
 }
 
 export function buildPortfolio(raw: RawPortfolio, today: string, fx: number): Portfolio {
@@ -192,9 +195,13 @@ export function buildPortfolio(raw: RawPortfolio, today: string, fx: number): Po
     };
   });
 
+  const profileById = new Map(raw.profiles.map((p) => [p.id, p]));
+  const isPrivate = (x: { is_hidden: boolean; owner_profile_id: string | null }) =>
+    x.is_hidden || !!(x.owner_profile_id && profileById.get(x.owner_profile_id)?.hide_everything);
+  /** Household totals leave out anything marked private; a single person's totals include it. */
   const totalsFor = (profileId: string | null): Totals => {
-    const hs = holdings.filter((h) => !profileId || h.owner_profile_id === profileId);
-    const ls = loans.filter((l) => !profileId || l.owner_profile_id === profileId);
+    const hs = holdings.filter((h) => (profileId ? h.owner_profile_id === profileId : !isPrivate(h)));
+    const ls = loans.filter((l) => (profileId ? l.owner_profile_id === profileId : !isPrivate(l)));
     const gross = hs.reduce((s, h) => s + h.value, 0);
     const liabilities = ls.reduce((s, l) => s + l.projection.balance, 0);
     return {
@@ -217,12 +224,22 @@ export function buildPortfolio(raw: RawPortfolio, today: string, fx: number): Po
     policies: raw.policies,
     totals: totalsFor(null),
     totalsByProfile,
+    privateNet:
+      holdings.filter((h) => isPrivate(h) && profileById.get(h.owner_profile_id ?? "")?.writable).reduce((s, h) => s + h.value, 0) -
+      loans.filter((l) => isPrivate(l) && profileById.get(l.owner_profile_id ?? "")?.writable).reduce((s, l) => s + l.projection.balance, 0),
+    isPrivate,
   };
 }
 
 /** Narrow a portfolio to one household member ("all" keeps everyone). */
 export function scopePortfolio(p: Portfolio, profile: string) {
-  if (profile === "all") return { holdings: p.holdings, loans: p.loans, policies: p.policies, totals: p.totals };
+  if (profile === "all")
+    return {
+      holdings: p.holdings.filter((h) => !p.isPrivate(h)),
+      loans: p.loans.filter((l) => !p.isPrivate(l)),
+      policies: p.policies.filter((x) => !p.isPrivate(x)),
+      totals: p.totals,
+    };
   return {
     holdings: p.holdings.filter((h) => h.owner_profile_id === profile),
     loans: p.loans.filter((l) => l.owner_profile_id === profile),

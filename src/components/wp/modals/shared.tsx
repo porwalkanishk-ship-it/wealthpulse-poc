@@ -39,6 +39,20 @@ export function useDefaultOwner() {
   return (writable.find((p) => p.isMe) ?? writable[0])?.id ?? "";
 }
 
+export function PrivateToggle({ value, onChange, note }: { value: boolean; onChange: (v: boolean) => void; note?: string }) {
+  return (
+    <label className="sm:col-span-2 flex items-start gap-2.5 rounded-[5px] border border-line bg-ink/40 px-3 py-2.5">
+      <input type="checkbox" className="mt-0.5" checked={value} onChange={(e) => onChange(e.target.checked)} />
+      <span>
+        <span className="text-hi">Keep private from my household</span>
+        <span className="block text-[11.5px] text-mut">
+          Only you see this. It is left out of household totals.{note ? ` ${note}` : ""}
+        </span>
+      </span>
+    </label>
+  );
+}
+
 export function DeleteButton({ onConfirm, label = "Delete", busy }: { onConfirm: () => void; label?: string; busy?: boolean }) {
   const [armed, setArmed] = useState(false);
   return armed ? (

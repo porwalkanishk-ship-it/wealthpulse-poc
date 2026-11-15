@@ -6,7 +6,7 @@ import { fmtMonthYear, todayISO } from "@/lib/dates";
 import { projectLoan } from "@/lib/finance";
 import { LOAN_KIND_LABEL } from "@/lib/portfolio";
 import { Btn, Field, Modal, SelectInput, TextInput } from "../ui";
-import { DeleteButton, OwnerField, numStr, toNum, useDefaultOwner } from "./shared";
+import { DeleteButton, OwnerField, PrivateToggle, numStr, toNum, useDefaultOwner } from "./shared";
 
 export function LoanModal({ loanId, kind, onClose }: { loanId?: string | undefined; kind?: string | undefined; onClose: () => void }) {
   const { portfolio, today } = usePortfolio();
@@ -14,6 +14,7 @@ export function LoanModal({ loanId, kind, onClose }: { loanId?: string | undefin
   const defaultOwner = useDefaultOwner();
   const ex = loanId ? portfolio?.loans.find((l) => l.id === loanId) : undefined;
   const [owner, setOwner] = useState(ex?.owner_profile_id ?? defaultOwner);
+  const [hidden, setHidden] = useState(ex?.is_hidden ?? false);
   const [f, setF] = useState({
     kind: ex?.kind ?? kind ?? "home",
     name: ex?.name ?? (kind ? LOAN_KIND_LABEL[kind] ?? "" : ""),
@@ -36,6 +37,7 @@ export function LoanModal({ loanId, kind, onClose }: { loanId?: string | undefin
     setBusy(true);
     const row = {
       owner_profile_id: owner,
+      is_hidden: hidden,
       kind: f.kind,
       name: f.name.trim().slice(0, 80),
       account_ref: f.account_ref.replace(/\D/g, "").slice(-4) || null,
@@ -49,6 +51,10 @@ export function LoanModal({ loanId, kind, onClose }: { loanId?: string | undefin
     };
     const res = ex ? await supabase.from("loans").update(row).eq("id", ex.id) : await supabase.from("loans").insert(row).select("id").single();
     if (!res.error && ex) await supabase.from("loan_events").insert({ loan_id: ex.id, kind: "terms_change", amount: 0, note: `Rate ${rate}%, EMI ₹${emi}` });
+    if (!res.error && hidden) {
+      const loanId = ex?.id ?? (res.data as { id: string } | null)?.id;
+      if (loanId) await supabase.from("holdings").update({ is_hidden: true }).eq("linked_loan_id", loanId);
+    }
     setBusy(false);
     if (res.error) return void toast.error(res.error.message);
     await invalidate();
@@ -85,6 +91,7 @@ export function LoanModal({ loanId, kind, onClose }: { loanId?: string | undefin
           </SelectInput>
         </Field>
         <OwnerField value={owner} onChange={setOwner} />
+        <PrivateToggle value={hidden} onChange={setHidden} note="Any asset linked to this loan will be hidden too." />
         <Field label="Lender / name"><TextInput sans value={f.name} onChange={set("name")} placeholder="HDFC Home Loan" maxLength={80} /></Field>
         <Field label="Account (last 4)"><TextInput value={f.account_ref} onChange={set("account_ref")} placeholder="4920" maxLength={4} /></Field>
         <Field label="Original loan amount (₹)"><TextInput inputMode="decimal" value={f.original_principal} onChange={set("original_principal")} /></Field>

@@ -15,6 +15,13 @@ export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ location }) => {
     const { data } = await supabase.auth.getUser();
     if (!data.user) throw redirect({ to: "/auth", search: { redirect: location.href } });
+    const { data: me } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("owner_user_id", data.user.id)
+      .eq("relationship", "self")
+      .maybeSingle();
+    if (!me) throw redirect({ to: "/onboarding" });
     return { user: data.user };
   },
   component: AuthenticatedLayout,

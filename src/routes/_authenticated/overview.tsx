@@ -25,9 +25,9 @@ export const Route = createFileRoute("/_authenticated/overview")({
 });
 
 function Overview() {
-  const { scoped, today, isLoading, error, refetch } = usePortfolio();
+  const { scoped, portfolio, today, isLoading, error, refetch } = usePortfolio();
   const { full, compact } = useMoney();
-  const { open } = useAppState();
+  const { open, profile } = useAppState();
 
   if (error) {
     return (
@@ -60,6 +60,9 @@ function Overview() {
 
   return (
     <div className="px-4 md:px-6 pt-5 pb-16 space-y-5">
+      {profile === "all" && portfolio && Math.abs(portfolio.privateNet) > 0.5 ? (
+        <p className="text-[12px] text-mut">Household view excludes {full(portfolio.privateNet)} you've marked private. You can see it on your own profile.</p>
+      ) : null}
       {/* Metric strip */}
       <section className="grid grid-cols-2 lg:grid-cols-4 border border-line rounded-[6px] bg-panel overflow-hidden [&>div]:border-line max-lg:[&>div:nth-child(-n+2)]:border-b lg:divide-x divide-line">
         <div className="p-4 max-lg:border-r">
