@@ -22,15 +22,17 @@ export type Database = {
           created_at: string
           folio: string | null
           id: string
+          is_hidden: boolean
           isin: string | null
           linked_loan_id: string | null
           maturity_date: string | null
-          member_id: string
+          member_id: string | null
           monthly_contribution: number
           name: string
           nav: number | null
           nav_date: string | null
           next_due: string | null
+          owner_profile_id: string | null
           premium: number | null
           prev_nav: number | null
           price_currency: string
@@ -56,15 +58,17 @@ export type Database = {
           created_at?: string
           folio?: string | null
           id?: string
+          is_hidden?: boolean
           isin?: string | null
           linked_loan_id?: string | null
           maturity_date?: string | null
-          member_id: string
+          member_id?: string | null
           monthly_contribution?: number
           name: string
           nav?: number | null
           nav_date?: string | null
           next_due?: string | null
+          owner_profile_id?: string | null
           premium?: number | null
           prev_nav?: number | null
           price_currency?: string
@@ -90,15 +94,17 @@ export type Database = {
           created_at?: string
           folio?: string | null
           id?: string
+          is_hidden?: boolean
           isin?: string | null
           linked_loan_id?: string | null
           maturity_date?: string | null
-          member_id?: string
+          member_id?: string | null
           monthly_contribution?: number
           name?: string
           nav?: number | null
           nav_date?: string | null
           next_due?: string | null
+          owner_profile_id?: string | null
           premium?: number | null
           prev_nav?: number | null
           price_currency?: string
@@ -126,10 +132,126 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "holdings_member_id_fkey"
-            columns: ["member_id"]
+            foreignKeyName: "holdings_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
             isOneToOne: false
-            referencedRelation: "members"
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      household_members: {
+        Row: {
+          household_id: string
+          joined_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          household_id: string
+          joined_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          household_id?: string
+          joined_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_members_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      households: {
+        Row: {
+          created_at: string
+          display_currency: string
+          id: string
+          invite_code: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          display_currency?: string
+          id?: string
+          invite_code?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          display_currency?: string
+          id?: string
+          invite_code?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      join_requests: {
+        Row: {
+          claim_completed_at: string | null
+          claim_profile_id: string | null
+          consent_at: string
+          created_at: string
+          creator_decision: string | null
+          decided_at: string | null
+          household_id: string
+          household_name: string
+          id: string
+          leader_decision: string | null
+          requester_name: string
+          requester_user_id: string
+          status: string
+        }
+        Insert: {
+          claim_completed_at?: string | null
+          claim_profile_id?: string | null
+          consent_at?: string
+          created_at?: string
+          creator_decision?: string | null
+          decided_at?: string | null
+          household_id: string
+          household_name: string
+          id?: string
+          leader_decision?: string | null
+          requester_name: string
+          requester_user_id: string
+          status?: string
+        }
+        Update: {
+          claim_completed_at?: string | null
+          claim_profile_id?: string | null
+          consent_at?: string
+          created_at?: string
+          creator_decision?: string | null
+          decided_at?: string | null
+          household_id?: string
+          household_name?: string
+          id?: string
+          leader_decision?: string | null
+          requester_name?: string
+          requester_user_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "join_requests_claim_profile_id_fkey"
+            columns: ["claim_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "join_requests_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
             referencedColumns: ["id"]
           },
         ]
@@ -140,9 +262,11 @@ export type Database = {
           created_at: string
           event_date: string
           id: string
+          is_hidden: boolean
           kind: string
           loan_id: string
           note: string | null
+          owner_profile_id: string | null
           user_id: string
         }
         Insert: {
@@ -150,9 +274,11 @@ export type Database = {
           created_at?: string
           event_date?: string
           id?: string
+          is_hidden?: boolean
           kind?: string
           loan_id: string
           note?: string | null
+          owner_profile_id?: string | null
           user_id?: string
         }
         Update: {
@@ -160,9 +286,11 @@ export type Database = {
           created_at?: string
           event_date?: string
           id?: string
+          is_hidden?: boolean
           kind?: string
           loan_id?: string
           note?: string | null
+          owner_profile_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -171,6 +299,13 @@ export type Database = {
             columns: ["loan_id"]
             isOneToOne: false
             referencedRelation: "loans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loan_events_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -183,11 +318,13 @@ export type Database = {
           emi: number
           emi_day: number
           id: string
+          is_hidden: boolean
           kind: string
-          member_id: string
+          member_id: string | null
           name: string
           original_principal: number
           outstanding: number
+          owner_profile_id: string | null
           rate: number
           rate_type: string
           user_id: string
@@ -199,11 +336,13 @@ export type Database = {
           emi?: number
           emi_day?: number
           id?: string
+          is_hidden?: boolean
           kind?: string
-          member_id: string
+          member_id?: string | null
           name: string
           original_principal?: number
           outstanding?: number
+          owner_profile_id?: string | null
           rate?: number
           rate_type?: string
           user_id?: string
@@ -215,21 +354,23 @@ export type Database = {
           emi?: number
           emi_day?: number
           id?: string
+          is_hidden?: boolean
           kind?: string
-          member_id?: string
+          member_id?: string | null
           name?: string
           original_principal?: number
           outstanding?: number
+          owner_profile_id?: string | null
           rate?: number
           rate_type?: string
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "loans_member_id_fkey"
-            columns: ["member_id"]
+            foreignKeyName: "loans_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
             isOneToOne: false
-            referencedRelation: "members"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -258,6 +399,39 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          link: string | null
+          read_at: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          link?: string | null
+          read_at?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          link?: string | null
+          read_at?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       policies: {
         Row: {
           cover: number
@@ -265,10 +439,12 @@ export type Database = {
           frequency: string
           id: string
           insurer: string | null
+          is_hidden: boolean
           kind: string
-          member_id: string
+          member_id: string | null
           name: string
           next_due: string
+          owner_profile_id: string | null
           policy_number: string | null
           premium: number
           user_id: string
@@ -279,10 +455,12 @@ export type Database = {
           frequency?: string
           id?: string
           insurer?: string | null
+          is_hidden?: boolean
           kind?: string
-          member_id: string
+          member_id?: string | null
           name: string
           next_due?: string
+          owner_profile_id?: string | null
           policy_number?: string | null
           premium?: number
           user_id?: string
@@ -293,23 +471,61 @@ export type Database = {
           frequency?: string
           id?: string
           insurer?: string | null
+          is_hidden?: boolean
           kind?: string
-          member_id?: string
+          member_id?: string | null
           name?: string
           next_due?: string
+          owner_profile_id?: string | null
           policy_number?: string | null
           premium?: number
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "policies_member_id_fkey"
-            columns: ["member_id"]
+            foreignKeyName: "policies_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
             isOneToOne: false
-            referencedRelation: "members"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
+      }
+      profiles: {
+        Row: {
+          base_currency: string
+          country: string | null
+          created_at: string
+          display_name: string
+          hide_everything: boolean
+          id: string
+          managed_by_user_id: string | null
+          owner_user_id: string | null
+          relationship: string
+        }
+        Insert: {
+          base_currency?: string
+          country?: string | null
+          created_at?: string
+          display_name: string
+          hide_everything?: boolean
+          id?: string
+          managed_by_user_id?: string | null
+          owner_user_id?: string | null
+          relationship?: string
+        }
+        Update: {
+          base_currency?: string
+          country?: string | null
+          created_at?: string
+          display_name?: string
+          hide_everything?: boolean
+          id?: string
+          managed_by_user_id?: string | null
+          owner_user_id?: string | null
+          relationship?: string
+        }
+        Relationships: []
       }
       sip_installments: {
         Row: {
@@ -318,8 +534,10 @@ export type Database = {
           due_date: string
           holding_id: string
           id: string
+          is_hidden: boolean
           nav: number | null
           nav_date: string | null
+          owner_profile_id: string | null
           status: string
           units: number
           user_id: string
@@ -330,8 +548,10 @@ export type Database = {
           due_date: string
           holding_id: string
           id?: string
+          is_hidden?: boolean
           nav?: number | null
           nav_date?: string | null
+          owner_profile_id?: string | null
           status?: string
           units?: number
           user_id?: string
@@ -342,8 +562,10 @@ export type Database = {
           due_date?: string
           holding_id?: string
           id?: string
+          is_hidden?: boolean
           nav?: number | null
           nav_date?: string | null
+          owner_profile_id?: string | null
           status?: string
           units?: number
           user_id?: string
@@ -356,6 +578,13 @@ export type Database = {
             referencedRelation: "holdings"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sip_installments_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -363,7 +592,55 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      seed_household: { Args: { _uid: string }; Returns: undefined }
+      _notify: {
+        Args: {
+          _body: string
+          _link: string
+          _title: string
+          _type: string
+          _user: string
+        }
+        Returns: undefined
+      }
+      _try_complete_claim: { Args: { _request_id: string }; Returns: boolean }
+      add_managed_profile: {
+        Args: { _name: string; _relationship: string }
+        Returns: string
+      }
+      can_read_row: {
+        Args: { _is_hidden: boolean; _profile_id: string }
+        Returns: boolean
+      }
+      can_see_profile: { Args: { _profile_id: string }; Returns: boolean }
+      can_write_profile: { Args: { _profile_id: string }; Returns: boolean }
+      cancel_join_request: { Args: { _request_id: string }; Returns: undefined }
+      complete_onboarding: {
+        Args: { _base_currency: string; _country: string; _full_name: string }
+        Returns: string
+      }
+      create_household: { Args: { _name: string }; Returns: string }
+      decide_claim: {
+        Args: { _approve: boolean; _request_id: string }
+        Returns: undefined
+      }
+      decide_join: {
+        Args: { _approve: boolean; _request_id: string }
+        Returns: undefined
+      }
+      gen_invite_code: { Args: never; Returns: string }
+      get_invite_code: { Args: never; Returns: string }
+      is_household_leader: { Args: { _household_id: string }; Returns: boolean }
+      is_household_member: { Args: { _household_id: string }; Returns: boolean }
+      is_profile_creator: { Args: { _profile_id: string }; Returns: boolean }
+      leave_household: { Args: never; Returns: undefined }
+      lookup_household: { Args: { _code: string }; Returns: Json }
+      my_household_id: { Args: never; Returns: string }
+      profile_household_id: { Args: { _profile_id: string }; Returns: string }
+      request_join: {
+        Args: { _claim_profile_id: string; _code: string; _consent: boolean }
+        Returns: string
+      }
+      rotate_invite_code: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never

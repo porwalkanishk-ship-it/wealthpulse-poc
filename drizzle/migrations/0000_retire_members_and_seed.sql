@@ -1,0 +1,12 @@
+DROP FUNCTION IF EXISTS public.handle_new_user_household() CASCADE;
+DROP FUNCTION IF EXISTS public.seed_household(uuid);
+ALTER TABLE public.holdings DROP CONSTRAINT IF EXISTS holdings_member_id_fkey;
+ALTER TABLE public.loans DROP CONSTRAINT IF EXISTS loans_member_id_fkey;
+ALTER TABLE public.policies DROP CONSTRAINT IF EXISTS policies_member_id_fkey;
+ALTER TABLE public.holdings ALTER COLUMN member_id DROP NOT NULL;
+ALTER TABLE public.loans ALTER COLUMN member_id DROP NOT NULL;
+ALTER TABLE public.policies ALTER COLUMN member_id DROP NOT NULL;
+COMMENT ON COLUMN public.holdings.member_id IS 'DEPRECATED: replaced by owner_profile_id';
+COMMENT ON COLUMN public.loans.member_id IS 'DEPRECATED: replaced by owner_profile_id';
+COMMENT ON COLUMN public.policies.member_id IS 'DEPRECATED: replaced by owner_profile_id';
+COMMENT ON TABLE public.members IS 'DEPRECATED: replaced by public.profiles';

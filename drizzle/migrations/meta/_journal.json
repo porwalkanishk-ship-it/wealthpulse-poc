@@ -1,5 +1,20 @@
 {
   "version": "7",
   "dialect": "postgresql",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1794718380275,
+      "tag": "0000_retire_members_and_seed",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794718503328,
+      "tag": "0001_households_profiles_privacy",
+      "breakpoints": true
+    }
+  ]
 }
