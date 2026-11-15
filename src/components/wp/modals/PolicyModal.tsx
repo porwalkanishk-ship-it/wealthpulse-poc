@@ -11,7 +11,7 @@ export function PolicyModal({ policyId, kind, onClose }: { policyId?: string | u
   const invalidate = useInvalidatePortfolio();
   const defaultOwner = useDefaultOwner();
   const ex = policyId ? portfolio?.policies.find((p) => p.id === policyId) : undefined;
-  const [owner, setOwner] = useState(ex?.member_id ?? defaultOwner);
+  const [owner, setOwner] = useState(ex?.owner_profile_id ?? defaultOwner);
   const [f, setF] = useState({
     kind: ex?.kind ?? kind ?? "health",
     name: ex?.name ?? "",
@@ -29,7 +29,7 @@ export function PolicyModal({ policyId, kind, onClose }: { policyId?: string | u
     const cover = toNum(f.cover), premium = toNum(f.premium);
     if (!f.name.trim() || !(cover >= 0) || !(premium >= 0) || !f.next_due) return void toast.error("Fill in name, cover, premium and due date");
     setBusy(true);
-    const row = { member_id: owner, kind: f.kind, name: f.name.trim().slice(0, 80), insurer: f.insurer.trim() || null, policy_number: f.policy_number.trim() || null, cover, premium, frequency: f.frequency, next_due: f.next_due };
+    const row = { owner_profile_id: owner, kind: f.kind, name: f.name.trim().slice(0, 80), insurer: f.insurer.trim() || null, policy_number: f.policy_number.trim() || null, cover, premium, frequency: f.frequency, next_due: f.next_due };
     const { error } = ex ? await supabase.from("policies").update(row).eq("id", ex.id) : await supabase.from("policies").insert(row);
     setBusy(false);
     if (error) return void toast.error(error.message);

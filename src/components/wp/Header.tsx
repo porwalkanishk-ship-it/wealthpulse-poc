@@ -28,7 +28,7 @@ export function ProfileSwitcher({ className }: { className?: string }) {
   if (!portfolio) return <Skeleton className={cn("h-9 w-[380px] max-w-full", className)} />;
   const options = [
     { id: "all", name: "Household", net: portfolio.totals.net },
-    ...portfolio.members.map((m) => ({ id: m.id, name: m.name, net: portfolio.totalsByMember[m.id]?.net ?? 0 })),
+    ...portfolio.profiles.map((m) => ({ id: m.id, name: m.isMe ? "Me" : m.display_name, net: portfolio.totalsByProfile[m.id]?.net ?? 0 })),
   ];
   return (
     <div className={cn("flex p-0.5 rounded-[7px] border border-line bg-panel overflow-x-auto no-scrollbar", className)} role="tablist" aria-label="Family profile">

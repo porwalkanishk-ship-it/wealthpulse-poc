@@ -1,5 +1,6 @@
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
+import type { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { getFxRate } from "./market.functions";
 import { buildPortfolio, scopePortfolio, type RawPortfolio } from "./portfolio";
@@ -15,15 +16,22 @@ async function must<T>(p: PromiseLike<{ data: T | null; error: { message: string
 export const portfolioQuery = queryOptions({
   queryKey: ["portfolio"],
   queryFn: async (): Promise<RawPortfolio> => {
-    const [members, holdings, installments, loans, loanEvents, policies] = await Promise.all([
-      must(supabase.from("members").select("*").order("sort")),
+    const [{ data: auth }, profileRows, holdings, installments, loans, loanEvents, policies] = await Promise.all([
+      supabase.auth.getUser(),
+      must(supabase.from("profiles").select("*").order("created_at")),
       must(supabase.from("holdings").select("*").order("created_at")),
       must(supabase.from("sip_installments").select("*").order("due_date", { ascending: false })),
       must(supabase.from("loans").select("*").order("created_at")),
       must(supabase.from("loan_events").select("*").order("event_date", { ascending: false })),
       must(supabase.from("policies").select("*").order("next_due")),
     ]);
-    return { members, holdings, installments, loans, loanEvents, policies } as RawPortfolio;
+    const uid = auth.user?.id;
+    const profiles = (profileRows as Tables<"profiles">[]).map((p) => ({
+      ...p,
+      isMe: !!uid && p.owner_user_id === uid,
+      writable: !!uid && (p.owner_user_id === uid || (p.owner_user_id === null && p.managed_by_user_id === uid)),
+    }));
+    return { profiles, holdings, installments, loans, loanEvents, policies } as RawPortfolio;
   },
 });
 

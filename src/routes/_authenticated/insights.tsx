@@ -74,12 +74,12 @@ function Insights() {
           </div>
         </Panel>
         <Panel>
-          <PanelHeader title="By member" />
+          <PanelHeader title="By person" />
           <div className="p-4 space-y-3">
-            {portfolio.members.map((m) => {
-              const t = portfolio.totalsByMember[m.id];
+            {portfolio.profiles.map((m) => {
+              const t = portfolio.totalsByProfile[m.id];
               return (
-                <div key={m.id} className="flex items-center"><span>{m.name}</span><span className="ml-auto n text-hi">{full(t?.net ?? 0)}</span></div>
+                <div key={m.id} className="flex items-center"><span>{m.display_name}</span><span className="ml-auto n text-hi">{full(t?.net ?? 0)}</span></div>
               );
             })}
           </div>

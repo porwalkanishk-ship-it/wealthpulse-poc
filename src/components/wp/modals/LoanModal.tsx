@@ -13,7 +13,7 @@ export function LoanModal({ loanId, kind, onClose }: { loanId?: string | undefin
   const invalidate = useInvalidatePortfolio();
   const defaultOwner = useDefaultOwner();
   const ex = loanId ? portfolio?.loans.find((l) => l.id === loanId) : undefined;
-  const [owner, setOwner] = useState(ex?.member_id ?? defaultOwner);
+  const [owner, setOwner] = useState(ex?.owner_profile_id ?? defaultOwner);
   const [f, setF] = useState({
     kind: ex?.kind ?? kind ?? "home",
     name: ex?.name ?? (kind ? LOAN_KIND_LABEL[kind] ?? "" : ""),
@@ -35,7 +35,7 @@ export function LoanModal({ loanId, kind, onClose }: { loanId?: string | undefin
     if (!valid) return void toast.error("Fill in balance, rate and EMI");
     setBusy(true);
     const row = {
-      member_id: owner,
+      owner_profile_id: owner,
       kind: f.kind,
       name: f.name.trim().slice(0, 80),
       account_ref: f.account_ref.replace(/\D/g, "").slice(-4) || null,

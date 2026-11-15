@@ -40,7 +40,7 @@ export function CasModal({ onClose, onImported }: { onClose: () => void; onImpor
       if (res.funds.length === 0) throw new Error("No mutual fund holdings were found in this statement.");
       setResult(res);
       setSelected(new Set(res.funds.map((_, i) => i)));
-      const match = portfolio?.members.find((m) => res.investor_name?.toLowerCase().includes(m.name.toLowerCase()));
+      const match = portfolio?.profiles.find((m) => m.writable && res.investor_name?.toLowerCase().includes(m.display_name.toLowerCase()));
       if (match) setOwner(match.id);
       setStep("review");
     } catch (e) {
@@ -63,7 +63,7 @@ export function CasModal({ onClose, onImported }: { onClose: () => void; onImpor
       for (const [i, fund] of result.funds.entries()) {
         if (!selected.has(i)) continue;
         const existing = portfolio?.holdings.find(
-          (h) => h.cat === "mutual_fund" && h.member_id === owner && ((fund.scheme_code && h.scheme_code === fund.scheme_code) || (!!fund.folio && h.folio === fund.folio && h.name === fund.scheme_name)),
+          (h) => h.cat === "mutual_fund" && h.owner_profile_id === owner && ((fund.scheme_code && h.scheme_code === fund.scheme_code) || (!!fund.folio && h.folio === fund.folio && h.name === fund.scheme_name)),
         );
         const sip = fund.sip_amount && fund.sip_amount > 0 ? fund.sip_amount : null;
         const sipDay = fund.sip_day && fund.sip_day >= 1 ? Math.min(28, fund.sip_day) : 5;
@@ -79,7 +79,7 @@ export function CasModal({ onClose, onImported }: { onClose: () => void; onImpor
           updated++;
         } else {
           const { error } = await supabase.from("holdings").insert({
-            member_id: owner, category: "mutual_fund", name: fund.matched_name ?? fund.scheme_name, folio: fund.folio, isin: fund.isin,
+            owner_profile_id: owner, category: "mutual_fund", name: fund.matched_name ?? fund.scheme_name, folio: fund.folio, isin: fund.isin,
             scheme_code: fund.scheme_code, units: fund.units, nav: fund.nav, nav_date: fund.scheme_code ? null : stmt, as_of: stmt,
             sip_amount: sip, sip_day: sip ? sipDay : null, sip_active: !!sip, sip_start: sip ? addDays(stmt, 1) : null,
           });

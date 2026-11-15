@@ -20,9 +20,9 @@ export function OwnerField({ value, onChange }: { value: string; onChange: (v: s
   return (
     <Field label="Belongs to">
       <SelectInput value={value} onChange={(e) => onChange(e.target.value)}>
-        {(portfolio?.members ?? []).map((m) => (
+        {(portfolio?.profiles ?? []).filter((m) => m.writable).map((m) => (
           <option key={m.id} value={m.id}>
-            {m.name}
+            {m.display_name}{m.isMe ? " (you)" : ""}
           </option>
         ))}
       </SelectInput>
@@ -30,12 +30,13 @@ export function OwnerField({ value, onChange }: { value: string; onChange: (v: s
   );
 }
 
-/** Default owner: the selected profile, else the first member. */
+/** Default owner: the selected profile if you can edit it, else your own profile. */
 export function useDefaultOwner() {
   const { profile } = useAppState();
   const { portfolio } = usePortfolio();
-  if (profile !== "all") return profile;
-  return portfolio?.members[0]?.id ?? "";
+  const writable = (portfolio?.profiles ?? []).filter((p) => p.writable);
+  if (profile !== "all" && writable.some((p) => p.id === profile)) return profile;
+  return (writable.find((p) => p.isMe) ?? writable[0])?.id ?? "";
 }
 
 export function DeleteButton({ onConfirm, label = "Delete", busy }: { onConfirm: () => void; label?: string; busy?: boolean }) {

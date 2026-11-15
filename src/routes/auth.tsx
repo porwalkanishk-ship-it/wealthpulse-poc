@@ -120,7 +120,7 @@ function AuthPage() {
     else toast.success("Password reset link sent. Check your inbox.");
   }
 
-  async function oauth(provider: "google" | "lovable") {
+  async function oauth(provider: "google") {
     const result = await lovable.auth.signInWithOAuth(provider, { redirect_uri: window.location.origin });
     if (result.error) {
       toast.error("Sign-in didn't complete. Please try again.");
@@ -205,9 +205,6 @@ function AuthPage() {
                   className="w-full h-10 rounded-[6px] border border-[var(--google-border)] bg-[var(--google-bg)] text-[var(--google-text)] font-medium inline-flex items-center justify-center gap-2.5 px-3"
                 >
                   <GoogleG /> Continue with Google
-                </button>
-                <button type="button" className="lovable-auth-button w-full" onClick={() => void oauth("lovable")}>
-                  Continue with Lovable
                 </button>
               </div>
             </div>

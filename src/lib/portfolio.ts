@@ -3,7 +3,12 @@ import { addMonths, daysBetween, monthsBetween, yearsBetween } from "./dates";
 import { fdValue, growMonthly, projectLoan, type LoanProjection } from "./finance";
 import { totalUnits, type InstallmentStatus } from "./sip";
 
-export type Member = Tables<"members">;
+export type Profile = Tables<"profiles"> & {
+  /** True when the signed-in user may edit this profile (own profile or one they manage). */
+  writable: boolean;
+  /** True for the signed-in user's own profile. */
+  isMe: boolean;
+};
 export type Holding = Tables<"holdings">;
 export type Installment = Tables<"sip_installments">;
 export type Loan = Tables<"loans">;
@@ -11,7 +16,7 @@ export type LoanEvent = Tables<"loan_events">;
 export type Policy = Tables<"policies">;
 
 export interface RawPortfolio {
-  members: Member[];
+  profiles: Profile[];
   holdings: Holding[];
   installments: Installment[];
   loans: Loan[];
@@ -138,12 +143,12 @@ export function valueHolding(h: Holding, installments: Installment[], today: str
 }
 
 export interface Portfolio {
-  members: Member[];
+  profiles: Profile[];
   holdings: ValuedHolding[];
   loans: ValuedLoan[];
   policies: Policy[];
   totals: Totals;
-  totalsByMember: Record<string, Totals>;
+  totalsByProfile: Record<string, Totals>;
 }
 
 export function buildPortfolio(raw: RawPortfolio, today: string, fx: number): Portfolio {
@@ -187,9 +192,9 @@ export function buildPortfolio(raw: RawPortfolio, today: string, fx: number): Po
     };
   });
 
-  const totalsFor = (memberId: string | null): Totals => {
-    const hs = holdings.filter((h) => !memberId || h.member_id === memberId);
-    const ls = loans.filter((l) => !memberId || l.member_id === memberId);
+  const totalsFor = (profileId: string | null): Totals => {
+    const hs = holdings.filter((h) => !profileId || h.owner_profile_id === profileId);
+    const ls = loans.filter((l) => !profileId || l.owner_profile_id === profileId);
     const gross = hs.reduce((s, h) => s + h.value, 0);
     const liabilities = ls.reduce((s, l) => s + l.projection.balance, 0);
     return {
@@ -202,16 +207,16 @@ export function buildPortfolio(raw: RawPortfolio, today: string, fx: number): Po
     };
   };
 
-  const totalsByMember: Record<string, Totals> = {};
-  for (const m of raw.members) totalsByMember[m.id] = totalsFor(m.id);
+  const totalsByProfile: Record<string, Totals> = {};
+  for (const m of raw.profiles) totalsByProfile[m.id] = totalsFor(m.id);
 
   return {
-    members: [...raw.members].sort((a, b) => a.sort - b.sort),
+    profiles: [...raw.profiles].sort((a, b) => Number(b.isMe) - Number(a.isMe) || a.display_name.localeCompare(b.display_name)),
     holdings,
     loans,
     policies: raw.policies,
     totals: totalsFor(null),
-    totalsByMember,
+    totalsByProfile,
   };
 }
 
@@ -219,10 +224,10 @@ export function buildPortfolio(raw: RawPortfolio, today: string, fx: number): Po
 export function scopePortfolio(p: Portfolio, profile: string) {
   if (profile === "all") return { holdings: p.holdings, loans: p.loans, policies: p.policies, totals: p.totals };
   return {
-    holdings: p.holdings.filter((h) => h.member_id === profile),
-    loans: p.loans.filter((l) => l.member_id === profile),
-    policies: p.policies.filter((x) => x.member_id === profile),
-    totals: p.totalsByMember[profile] ?? p.totals,
+    holdings: p.holdings.filter((h) => h.owner_profile_id === profile),
+    loans: p.loans.filter((l) => l.owner_profile_id === profile),
+    policies: p.policies.filter((x) => x.owner_profile_id === profile),
+    totals: p.totalsByProfile[profile] ?? p.totals,
   };
 }
 
@@ -236,7 +241,7 @@ export interface RenewalItem {
   date: string;
   days: number;
   amount: number;
-  memberId: string;
+  profileId: string;
   sourceId: string;
   /** True for money coming in (maturities). */
   inflow: boolean;
@@ -253,7 +258,7 @@ export function renewals(holdings: ValuedHolding[], policies: Policy[], today: s
       date: p.next_due,
       days: daysBetween(today, p.next_due),
       amount: n(p.premium),
-      memberId: p.member_id,
+      profileId: p.owner_profile_id ?? "",
       sourceId: p.id,
       inflow: false,
     });
@@ -268,7 +273,7 @@ export function renewals(holdings: ValuedHolding[], policies: Policy[], today: s
         date: h.maturity_date,
         days: daysBetween(today, h.maturity_date),
         amount: h.maturityValue ?? h.value,
-        memberId: h.member_id,
+        profileId: h.owner_profile_id ?? "",
         sourceId: h.id,
         inflow: true,
       });
@@ -283,7 +288,7 @@ export function renewals(holdings: ValuedHolding[], policies: Policy[], today: s
           date: h.next_due,
           days: daysBetween(today, h.next_due),
           amount: n(h.premium),
-          memberId: h.member_id,
+          profileId: h.owner_profile_id ?? "",
           sourceId: h.id,
           inflow: false,
         });
@@ -297,7 +302,7 @@ export function renewals(holdings: ValuedHolding[], policies: Policy[], today: s
           date: h.maturity_date,
           days: daysBetween(today, h.maturity_date),
           amount: h.value,
-          memberId: h.member_id,
+          profileId: h.owner_profile_id ?? "",
           sourceId: h.id,
           inflow: true,
         });

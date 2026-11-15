@@ -56,7 +56,8 @@ export const syncPortfolio = createServerFn({ method: "POST" })
     const { data: funds, error } = await supabase
       .from("holdings")
       .select("id, scheme_code, nav, nav_date, sip_active, sip_amount, sip_day, sip_start")
-      .eq("category", "mutual_fund");
+      .eq("category", "mutual_fund")
+      .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     const list = (funds ?? []).filter((f) => f.scheme_code);
     if (list.length === 0) return { navUpdated: 0, added: 0, priced: 0, navDate: null as string | null, failed: [] as string[] };

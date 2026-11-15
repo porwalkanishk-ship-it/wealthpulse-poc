@@ -66,7 +66,7 @@ export function AssetModal({ holdingId, category, onClose, onSaved }: Props) {
   const existing = holdingId ? portfolio?.holdings.find((h) => h.id === holdingId) : undefined;
   const [cat, setCat] = useState<Category | null>(existing ? existing.cat : (category ?? null));
   const [picking, setPicking] = useState(!existing);
-  const [owner, setOwner] = useState(existing?.member_id ?? defaultOwner);
+  const [owner, setOwner] = useState(existing?.owner_profile_id ?? defaultOwner);
   const [form, setForm] = useState<Form>(() => {
     if (!existing) return cat ? defaultsFor(cat) : {};
     return {
@@ -139,7 +139,7 @@ export function AssetModal({ holdingId, category, onClose, onSaved }: Props) {
     try {
       const nOrNull = (k: string) => (Number.isFinite(toNum(f(k))) ? toNum(f(k)) : null);
       const row: TablesInsert<"holdings"> = {
-        member_id: owner,
+        owner_profile_id: owner,
         category: cat,
         name: f("name").trim(),
         subtitle: f("subtitle").trim() || null,

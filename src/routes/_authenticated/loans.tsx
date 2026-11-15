@@ -126,7 +126,7 @@ function LoansPage() {
       <div className="mt-4 border border-line rounded-[6px] bg-panel px-4 sm:px-6 py-4 flex flex-col md:flex-row md:items-center gap-4">
         <div className="flex items-center gap-3 sm:gap-6 n flex-wrap">
           <div>
-            <div className="font-sans text-[11px] text-mut">Gross {profile === "all" ? "Household" : (portfolio.members.find((m) => m.id === profile)?.name ?? "")} Assets</div>
+            <div className="font-sans text-[11px] text-mut">Gross {profile === "all" ? "Household" : (portfolio.profiles.find((m) => m.id === profile)?.display_name ?? "")} Assets</div>
             <div className="text-[16px] sm:text-[19px] font-semibold mt-1 text-hi">{full(scoped.totals.gross)}</div>
           </div>
           <span className="text-[22px] text-mut">−</span>
@@ -146,7 +146,7 @@ function LoansPage() {
           className="md:ml-auto self-start md:self-auto"
           value={profile}
           onChange={setProfile}
-          options={[{ value: "all", label: "Household" }, ...portfolio.members.map((m) => ({ value: m.id, label: m.name }))]}
+          options={[{ value: "all", label: "Household" }, ...portfolio.profiles.map((m) => ({ value: m.id, label: m.display_name }))]}
         />
       </div>
     </div>

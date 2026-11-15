@@ -39,7 +39,7 @@ function HoldingsPage() {
       </div>
     );
   }
-  const memberName = (id: string) => portfolio.members.find((m) => m.id === id)?.name ?? "";
+  const memberName = (id: string | null) => portfolio.profiles.find((m) => m.id === id)?.display_name ?? "";
   const showOwner = profile === "all";
   const h = scoped.holdings;
   const funds = h.filter((x) => x.cat === "mutual_fund");
@@ -51,7 +51,7 @@ function HoldingsPage() {
   const marketTotal = [...funds, ...equities, ...rsus].reduce((s, x) => s + x.value, 0);
   const navDate = lastSync?.navDate ?? funds.find((f) => f.nav_date)?.nav_date ?? null;
 
-  const owner = (x: ValuedHolding) => (showOwner ? <span className="ml-2 text-[11px] text-mut font-sans">{memberName(x.member_id)}</span> : null);
+  const owner = (x: ValuedHolding) => (showOwner ? <span className="ml-2 text-[11px] text-mut font-sans">{memberName(x.owner_profile_id)}</span> : null);
 
   return (
     <div className="px-4 md:px-6 pt-5 pb-16 space-y-5">
@@ -182,7 +182,7 @@ function HoldingsPage() {
               <button key={g.id} type="button" onClick={() => open({ type: "asset", holdingId: g.id })} className="bg-panel p-4 text-left hover:bg-raised/30">
                 <SectionTitle className="tracking-wider truncate">
                   {g.name}
-                  {showOwner ? <span className="normal-case tracking-normal ml-2">· {memberName(g.member_id)}</span> : null}
+                  {showOwner ? <span className="normal-case tracking-normal ml-2">· {memberName(g.owner_profile_id)}</span> : null}
                 </SectionTitle>
                 <div className="n text-[20px] sm:text-[22px] text-hi mt-2">{full(g.value)}</div>
                 <div className="n text-[11.5px] mt-1 text-mut truncate">{guaranteedLine(g, full)}</div>
