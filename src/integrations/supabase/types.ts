@@ -14,10 +14,73 @@ export type Database = {
   }
   public: {
     Tables: {
+      cas_ai_calls: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      cas_imports: {
+        Row: {
+          funds_count: number
+          id: string
+          imported_at: string
+          profile_id: string
+          reminder_sent_at: string | null
+          source: string
+          statement_from: string | null
+          statement_to: string
+          user_id: string
+        }
+        Insert: {
+          funds_count?: number
+          id?: string
+          imported_at?: string
+          profile_id: string
+          reminder_sent_at?: string | null
+          source?: string
+          statement_from?: string | null
+          statement_to: string
+          user_id?: string
+        }
+        Update: {
+          funds_count?: number
+          id?: string
+          imported_at?: string
+          profile_id?: string
+          reminder_sent_at?: string | null
+          source?: string
+          statement_from?: string | null
+          statement_to?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cas_imports_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       holdings: {
         Row: {
           amount: number
           as_of: string
+          cas_verified_at: string | null
           category: string
           created_at: string
           folio: string | null
@@ -44,6 +107,9 @@ export type Database = {
           sip_day: number | null
           sip_start: string | null
           start_date: string | null
+          statement_date: string | null
+          statement_nav: number | null
+          statement_value: number | null
           subtitle: string | null
           unit_price: number | null
           units: number | null
@@ -54,6 +120,7 @@ export type Database = {
         Insert: {
           amount?: number
           as_of?: string
+          cas_verified_at?: string | null
           category: string
           created_at?: string
           folio?: string | null
@@ -80,6 +147,9 @@ export type Database = {
           sip_day?: number | null
           sip_start?: string | null
           start_date?: string | null
+          statement_date?: string | null
+          statement_nav?: number | null
+          statement_value?: number | null
           subtitle?: string | null
           unit_price?: number | null
           units?: number | null
@@ -90,6 +160,7 @@ export type Database = {
         Update: {
           amount?: number
           as_of?: string
+          cas_verified_at?: string | null
           category?: string
           created_at?: string
           folio?: string | null
@@ -116,6 +187,9 @@ export type Database = {
           sip_day?: number | null
           sip_start?: string | null
           start_date?: string | null
+          statement_date?: string | null
+          statement_nav?: number | null
+          statement_value?: number | null
           subtitle?: string | null
           unit_price?: number | null
           units?: number | null
@@ -399,6 +473,66 @@ export type Database = {
         }
         Relationships: []
       }
+      mf_transactions: {
+        Row: {
+          amount: number
+          balance_units: number | null
+          created_at: string
+          holding_id: string
+          id: string
+          is_hidden: boolean
+          nav: number | null
+          owner_profile_id: string | null
+          txn_date: string
+          type: string
+          units: number
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          balance_units?: number | null
+          created_at?: string
+          holding_id: string
+          id?: string
+          is_hidden?: boolean
+          nav?: number | null
+          owner_profile_id?: string | null
+          txn_date: string
+          type: string
+          units?: number
+          user_id?: string
+        }
+        Update: {
+          amount?: number
+          balance_units?: number | null
+          created_at?: string
+          holding_id?: string
+          id?: string
+          is_hidden?: boolean
+          nav?: number | null
+          owner_profile_id?: string | null
+          txn_date?: string
+          type?: string
+          units?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mf_transactions_holding_id_fkey"
+            columns: ["holding_id"]
+            isOneToOne: false
+            referencedRelation: "holdings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mf_transactions_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
@@ -614,10 +748,13 @@ export type Database = {
       can_see_profile: { Args: { _profile_id: string }; Returns: boolean }
       can_write_profile: { Args: { _profile_id: string }; Returns: boolean }
       cancel_join_request: { Args: { _request_id: string }; Returns: undefined }
+      cas_next_import_date: { Args: { _profile_id: string }; Returns: string }
+      check_cas_reminders: { Args: never; Returns: number }
       complete_onboarding: {
         Args: { _base_currency: string; _country: string; _full_name: string }
         Returns: string
       }
+      consume_cas_ai_call: { Args: never; Returns: boolean }
       create_household: { Args: { _name: string }; Returns: string }
       decide_claim: {
         Args: { _approve: boolean; _request_id: string }
@@ -629,6 +766,10 @@ export type Database = {
       }
       gen_invite_code: { Args: never; Returns: string }
       get_invite_code: { Args: never; Returns: string }
+      import_cas: {
+        Args: { _profile_id: string; _statement: Json }
+        Returns: Json
+      }
       is_household_leader: { Args: { _household_id: string }; Returns: boolean }
       is_household_member: { Args: { _household_id: string }; Returns: boolean }
       is_profile_creator: { Args: { _profile_id: string }; Returns: boolean }
