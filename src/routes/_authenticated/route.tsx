@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePortfolio } from "@/lib/data";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,6 +36,33 @@ function AuthenticatedLayout() {
   );
 }
 
+/** Persistent nudge: a profile with mutual funds but no successful CAS import yet. Never blocks the app. */
+function CasPrompt() {
+  const { portfolio } = usePortfolio();
+  const { open } = useAppState();
+  const imports = useQuery({
+    queryKey: ["cas_imports"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("cas_imports").select("profile_id, imported_at");
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+  if (!portfolio || imports.isLoading) return null;
+  const done = new Set((imports.data ?? []).map((i) => i.profile_id));
+  const need = portfolio.profiles.filter((p) => p.writable && !done.has(p.id) && portfolio.holdings.some((h) => h.cat === "mutual_fund" && h.owner_profile_id === p.id));
+  if (need.length === 0) return null;
+  const names = need.map((p) => (p.isMe ? "you" : p.display_name)).join(", ");
+  return (
+    <div className="bg-amber/10 border-b border-amber/30 px-4 md:px-6 py-2 flex flex-wrap items-center gap-3 text-[12.5px]">
+      <span className="text-amber">Upload a Detailed CAS (since inception) for {names} to verify your mutual fund units.</span>
+      <button type="button" className="ml-auto text-em font-medium hover:underline" onClick={() => open({ type: "cas" })}>
+        Upload CAS
+      </button>
+    </div>
+  );
+}
+
 function Shell() {
   const qc = useQueryClient();
   const sync = useServerFn(syncPortfolio);
@@ -61,6 +89,10 @@ function Shell() {
     if (started.current) return;
     started.current = true;
     void runSync(false);
+    // Three-month CAS reminder (a scheduler arrives later); creates an in-app notification at most once per statement.
+    void supabase.rpc("check_cas_reminders").then(({ data }) => {
+      if (data && data > 0) void qc.invalidateQueries({ queryKey: ["notifications"] });
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -68,6 +100,7 @@ function Shell() {
     <div className="min-h-screen flex flex-col bg-ink text-foreground text-[13px]">
       <Header />
       <Tabs onRefresh={() => void runSync(true)} />
+      <CasPrompt />
       <main className="flex-1 min-w-0">
         <Outlet />
       </main>

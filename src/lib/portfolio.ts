@@ -68,6 +68,12 @@ export interface ValuedHolding extends Holding {
   netEquity: number | null;
   unvestedValue: number;
   maturityValue: number | null;
+  /** Mutual fund with no matching AMFI scheme, so its NAV does not update. */
+  navMissing: boolean;
+  /** Mutual fund added by hand that no CAS has covered yet. */
+  unverified: boolean;
+  /** Units added from projected SIP instalments after the last statement. */
+  estimatedUnits: number;
 }
 
 export interface ValuedLoan extends Loan {
@@ -99,8 +105,9 @@ export function valueHolding(h: Holding, installments: Installment[], today: str
   switch (cat) {
     case "mutual_fund": {
       units = totalUnits(n(h.units), installments as { status: InstallmentStatus; units: number }[]);
-      value = units * n(h.nav);
-      if (h.prev_nav) dayChange = units * (n(h.nav) - n(h.prev_nav));
+      // No matching AMFI scheme: fall back to the NAV printed on the last statement instead of showing ₹0.
+      value = units * n(h.nav ?? h.statement_nav);
+      if (h.prev_nav && h.nav) dayChange = units * (n(h.nav) - n(h.prev_nav));
       break;
     }
     case "equity":
@@ -192,6 +199,9 @@ export function buildPortfolio(raw: RawPortfolio, today: string, fx: number): Po
       netEquity: linked ? v.value - linked.projection.balance : null,
       unvestedValue: v.unvestedValue,
       maturityValue: v.maturityValue,
+      navMissing: v.cat === "mutual_fund" && !h.scheme_code,
+      unverified: v.cat === "mutual_fund" && !h.cas_verified_at,
+      estimatedUnits: v.cat === "mutual_fund" ? Math.max(0, v.units - n(h.units)) : 0,
     };
   });
 

@@ -148,3 +148,37 @@ export const extractCas = createServerFn({ method: "POST" })
     }
     return { statement_date: parsed.statement_date ?? null, investor_name: parsed.investor_name ?? null, funds };
   });
+
+export interface MatchedFund {
+  scheme_code: string | null;
+  matched_name: string | null;
+  nav: number | null;
+  nav_date: string | null;
+}
+
+/** Match statement schemes to AMFI schemes and fetch each one's latest NAV. Sends only scheme names and ISINs. */
+export const matchCasFunds = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        funds: z
+          .array(z.object({ scheme_name: z.string().max(200), isin: z.string().max(12).nullable() }))
+          .max(300),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }): Promise<MatchedFund[]> => {
+    const out: MatchedFund[] = [];
+    for (const f of data.funds) {
+      const match = await resolveScheme(f.scheme_name, f.isin).catch(() => null);
+      if (!match) {
+        out.push({ scheme_code: null, matched_name: null, nav: null, nav_date: null });
+        continue;
+      }
+      const h = await fetchSchemeHistory(match.code).catch(() => null);
+      const last = h?.history[h.history.length - 1];
+      out.push({ scheme_code: match.code, matched_name: match.name, nav: last?.nav ?? null, nav_date: last?.date ?? null });
+    }
+    return out;
+  });

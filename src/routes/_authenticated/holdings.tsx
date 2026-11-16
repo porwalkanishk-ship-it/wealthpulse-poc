@@ -8,7 +8,7 @@ import { fmtDayMonYear, fmtMonDayYear, ordinal } from "@/lib/dates";
 import { num } from "@/lib/format";
 import { CATEGORY_LABEL, GUARANTEED, type Category, type ValuedHolding } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
-import { Btn, Empty, LiveDot, Panel, PanelHeader, SectionTitle, Skeleton } from "@/components/wp/ui";
+import { Badge, Btn, Empty, LiveDot, Panel, PanelHeader, SectionTitle, Skeleton } from "@/components/wp/ui";
 
 export const Route = createFileRoute("/_authenticated/holdings")({
   head: () => ({
@@ -91,10 +91,12 @@ function HoldingsPage() {
                       <td className="px-4 py-2.5 font-sans text-[13px] max-w-[260px]">
                         <span className="truncate inline-block max-w-full align-bottom">{f.name.replace(/ - Direct( Plan)?( -)? Growth( Option)?/i, "").replace(/ Fund$/, "")}</span>
                         {owner(f)}
+                        {f.unverified ? <Badge tone="amber" className="ml-2 align-middle">unverified</Badge> : null}
+                        {f.navMissing ? <Badge tone="amber" className="ml-2 align-middle" title="No matching AMFI scheme. Open the fund and pick the right one.">NAV missing</Badge> : null}
                       </td>
                       <td className="text-mut">{f.folio ?? "—"}</td>
-                      <td className="text-right">{num(f.totalUnits, 2)}</td>
-                      <td className="text-right">{f.nav ? num(Number(f.nav), 2) : <span className="text-mut">—</span>}</td>
+                      <td className="text-right">{num(f.totalUnits, 2)}{f.estimatedUnits > 0.0005 ? <span className="ml-1 text-[10px] text-amber" title="Units from projected SIP instalments after your last statement">est.</span> : null}</td>
+                      <td className="text-right">{f.nav ? num(Number(f.nav), 2) : f.statement_nav ? <span className="text-mut" title="From your last statement">{num(Number(f.statement_nav), 2)}*</span> : <span className="text-mut">—</span>}</td>
                       <td className="text-right text-hi">{full(f.value)}</td>
                       <td className={cn("text-right", f.dayChange >= 0 ? "text-em" : "text-co")}>{f.prev_nav ? full(f.dayChange, { sign: true }) : <span className="text-mut">—</span>}</td>
                       <td className="px-4 text-right" onClick={(e) => e.stopPropagation()}>
