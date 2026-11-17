@@ -14,3 +14,6 @@
 - [ ] 9. NAV-missing fix (fall back to statement NAV/value, warning, pick scheme)
 - [ ] 10. 3-month reminder notification on app load
 - [ ] 11. Unit tests (synthetic statements) + database tests; keep existing tests passing
+
+## Stage 3 — listed equities
+- [x] DB: securities, security_prices + latest_security_prices(), equity_holdings (holdings privacy), search_securities(); tests

@@ -76,6 +76,60 @@ export type Database = {
           },
         ]
       }
+      equity_holdings: {
+        Row: {
+          avg_buy_price: number | null
+          created_at: string
+          currency: string
+          id: string
+          is_hidden: boolean
+          owner_profile_id: string
+          quantity: number
+          security_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avg_buy_price?: number | null
+          created_at?: string
+          currency: string
+          id?: string
+          is_hidden?: boolean
+          owner_profile_id: string
+          quantity: number
+          security_id: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          avg_buy_price?: number | null
+          created_at?: string
+          currency?: string
+          id?: string
+          is_hidden?: boolean
+          owner_profile_id?: string
+          quantity?: number
+          security_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equity_holdings_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equity_holdings_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       holdings: {
         Row: {
           amount: number
@@ -661,6 +715,83 @@ export type Database = {
         }
         Relationships: []
       }
+      securities: {
+        Row: {
+          active: boolean
+          country: string
+          currency: string
+          exchange: string
+          id: string
+          isin: string | null
+          name: string
+          symbol: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          country: string
+          currency: string
+          exchange: string
+          id?: string
+          isin?: string | null
+          name: string
+          symbol: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          country?: string
+          currency?: string
+          exchange?: string
+          id?: string
+          isin?: string | null
+          name?: string
+          symbol?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      security_prices: {
+        Row: {
+          close: number
+          currency: string
+          fetched_at: string
+          prev_close: number | null
+          price_date: string
+          security_id: string
+          source: string
+        }
+        Insert: {
+          close: number
+          currency: string
+          fetched_at?: string
+          prev_close?: number | null
+          price_date: string
+          security_id: string
+          source: string
+        }
+        Update: {
+          close?: number
+          currency?: string
+          fetched_at?: string
+          prev_close?: number | null
+          price_date?: string
+          security_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_prices_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sip_installments: {
         Row: {
           amount: number
@@ -773,6 +904,24 @@ export type Database = {
       is_household_leader: { Args: { _household_id: string }; Returns: boolean }
       is_household_member: { Args: { _household_id: string }; Returns: boolean }
       is_profile_creator: { Args: { _profile_id: string }; Returns: boolean }
+      latest_security_prices: {
+        Args: never
+        Returns: {
+          close: number
+          currency: string
+          fetched_at: string
+          prev_close: number | null
+          price_date: string
+          security_id: string
+          source: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "security_prices"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       leave_household: { Args: never; Returns: undefined }
       lookup_household: { Args: { _code: string }; Returns: Json }
       my_household_id: { Args: never; Returns: string }
@@ -782,6 +931,27 @@ export type Database = {
         Returns: string
       }
       rotate_invite_code: { Args: never; Returns: string }
+      search_securities: {
+        Args: { _limit?: number; _q: string }
+        Returns: {
+          active: boolean
+          country: string
+          currency: string
+          exchange: string
+          id: string
+          isin: string | null
+          name: string
+          symbol: string
+          type: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "securities"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       [_ in never]: never

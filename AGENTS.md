@@ -35,3 +35,4 @@ use the editor.
 - NAV refresh and SIP unit auto-adds run in the `syncPortfolio` server function (mfapi.in AMFI mirror) on app load; client reads tables directly under RLS. Why: one idempotent writer for derived installments.
 - CAS PDFs are parsed to text in the browser (pdfjs) and only the text goes to the AI gateway. Why: the PDF file never leaves the device.
 - New accounts get the starting portfolio from the `seed_household` signup trigger. Why: first screen must show data without client-side seeding.
+- Shared market reference data (`securities`, `security_prices`) is read-only to signed-in users; only service-role server code writes it. Per-person stock positions live in `equity_holdings` with the same `can_read_row`/`can_write_profile` policies as `holdings`. Why: one price list for everyone, privacy stays per profile.
