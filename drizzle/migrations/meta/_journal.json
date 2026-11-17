@@ -29,6 +29,13 @@
       "when": 1794891884498,
       "tag": "0003_securities_prices_equity_holdings",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794916655172,
+      "tag": "0004_rsu_grants_and_vests",
+      "breakpoints": true
     }
   ]
 }

@@ -715,6 +715,134 @@ export type Database = {
         }
         Relationships: []
       }
+      rsu_grants: {
+        Row: {
+          company_name: string
+          created_at: string
+          grant_date: string
+          id: string
+          is_hidden: boolean
+          last_listing_check_at: string | null
+          listed: boolean
+          listing_snoozed_until: string | null
+          manual_price: number | null
+          manual_price_currency: string | null
+          manual_price_date: string | null
+          owner_profile_id: string
+          preset_config: Json
+          security_id: string | null
+          total_shares: number
+          updated_at: string
+          user_id: string
+          vesting_type: string
+          withholding_pct: number
+        }
+        Insert: {
+          company_name: string
+          created_at?: string
+          grant_date: string
+          id?: string
+          is_hidden?: boolean
+          last_listing_check_at?: string | null
+          listed?: boolean
+          listing_snoozed_until?: string | null
+          manual_price?: number | null
+          manual_price_currency?: string | null
+          manual_price_date?: string | null
+          owner_profile_id: string
+          preset_config?: Json
+          security_id?: string | null
+          total_shares: number
+          updated_at?: string
+          user_id?: string
+          vesting_type: string
+          withholding_pct?: number
+        }
+        Update: {
+          company_name?: string
+          created_at?: string
+          grant_date?: string
+          id?: string
+          is_hidden?: boolean
+          last_listing_check_at?: string | null
+          listed?: boolean
+          listing_snoozed_until?: string | null
+          manual_price?: number | null
+          manual_price_currency?: string | null
+          manual_price_date?: string | null
+          owner_profile_id?: string
+          preset_config?: Json
+          security_id?: string | null
+          total_shares?: number
+          updated_at?: string
+          user_id?: string
+          vesting_type?: string
+          withholding_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rsu_grants_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rsu_grants_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rsu_vests: {
+        Row: {
+          created_at: string
+          delivered_shares: number | null
+          grant_id: string
+          id: string
+          notified_at: string | null
+          price_currency: string | null
+          price_on_vest: number | null
+          shares: number
+          status: string
+          vest_date: string
+        }
+        Insert: {
+          created_at?: string
+          delivered_shares?: number | null
+          grant_id: string
+          id?: string
+          notified_at?: string | null
+          price_currency?: string | null
+          price_on_vest?: number | null
+          shares: number
+          status?: string
+          vest_date: string
+        }
+        Update: {
+          created_at?: string
+          delivered_shares?: number | null
+          grant_id?: string
+          id?: string
+          notified_at?: string | null
+          price_currency?: string | null
+          price_on_vest?: number | null
+          shares?: number
+          status?: string
+          vest_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rsu_vests_grant_id_fkey"
+            columns: ["grant_id"]
+            isOneToOne: false
+            referencedRelation: "rsu_grants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       securities: {
         Row: {
           active: boolean
@@ -876,11 +1004,14 @@ export type Database = {
         Args: { _is_hidden: boolean; _profile_id: string }
         Returns: boolean
       }
+      can_read_rsu_grant: { Args: { _grant_id: string }; Returns: boolean }
       can_see_profile: { Args: { _profile_id: string }; Returns: boolean }
       can_write_profile: { Args: { _profile_id: string }; Returns: boolean }
+      can_write_rsu_grant: { Args: { _grant_id: string }; Returns: boolean }
       cancel_join_request: { Args: { _request_id: string }; Returns: undefined }
       cas_next_import_date: { Args: { _profile_id: string }; Returns: string }
       check_cas_reminders: { Args: never; Returns: number }
+      check_rsu_notifications: { Args: never; Returns: number }
       complete_onboarding: {
         Args: { _base_currency: string; _country: string; _full_name: string }
         Returns: string
@@ -925,6 +1056,7 @@ export type Database = {
       leave_household: { Args: never; Returns: undefined }
       lookup_household: { Args: { _code: string }; Returns: Json }
       my_household_id: { Args: never; Returns: string }
+      normalize_company_name: { Args: { _name: string }; Returns: string }
       profile_household_id: { Args: { _profile_id: string }; Returns: string }
       request_join: {
         Args: { _claim_profile_id: string; _code: string; _consent: boolean }
