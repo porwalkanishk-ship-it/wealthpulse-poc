@@ -7,6 +7,7 @@ import { buildPortfolio, scopePortfolio, type Holding, type RawPortfolio } from 
 import { isStalePrice, possibleCorporateAction } from "./price-rules";
 import { todayISO } from "./dates";
 import { useAppState } from "./app-state";
+import { countGrant, unvestedByQuarter, type VestState } from "./rsu";
 
 async function must<T>(p: PromiseLike<{ data: T | null; error: { message: string } | null }>): Promise<T> {
   const { data, error } = await p;
@@ -65,14 +66,80 @@ async function equityRows(positions: Tables<"equity_holdings">[], today: string)
   }) as unknown as Holding[];
 }
 
+/** Turns RSU grants into holding-shaped rows: delivered plus estimated shares count, unvested shares are carried alongside. */
+async function rsuRows(grants: Tables<"rsu_grants">[], vests: Tables<"rsu_vests">[], today: string) {
+  if (grants.length === 0) return [];
+  const ids = [...new Set(grants.flatMap((g) => (g.security_id ? [g.security_id] : [])))];
+  const [secs, prices] = ids.length
+    ? await Promise.all([
+        must(supabase.from("securities").select("id, symbol, currency").in("id", ids)),
+        must(supabase.from("security_prices").select("security_id, price_date, close").in("security_id", ids).order("price_date", { ascending: false }).limit(ids.length * 4)),
+      ])
+    : [[], []];
+  const secById = new Map((secs as { id: string; symbol: string; currency: string }[]).map((s) => [s.id, s]));
+  const latest = new Map<string, { price_date: string; close: number }>();
+  for (const p of prices as { security_id: string; price_date: string; close: number }[]) if (!latest.has(p.security_id)) latest.set(p.security_id, p);
+  return grants.map((g) => {
+    const gv: VestState[] = vests
+      .filter((v) => v.grant_id === g.id)
+      .map((v) => ({ vest_date: v.vest_date, shares: Number(v.shares), status: v.status as "pending" | "delivered", delivered_shares: v.delivered_shares != null ? Number(v.delivered_shares) : null }));
+    const c = countGrant(gv, Number(g.withholding_pct), today);
+    const sec = g.security_id ? secById.get(g.security_id) : undefined;
+    const px = g.security_id ? latest.get(g.security_id) : undefined;
+    const manual = !g.listed || !px;
+    const price = !manual ? Number(px!.close) : g.manual_price != null ? Number(g.manual_price) : null;
+    const priceDate = !manual ? px!.price_date : g.manual_price_date;
+    const currency = !manual ? (sec?.currency ?? "USD") : (g.manual_price_currency ?? sec?.currency ?? "USD");
+    return {
+      id: `rsu:${g.id}`,
+      category: "rsu",
+      name: g.company_name,
+      subtitle: "Vested",
+      amount: 0,
+      as_of: priceDate ?? today,
+      quantity: c.deliveredShares + c.estimatedShares,
+      unvested_quantity: c.unvestedShares,
+      unit_price: price,
+      price_currency: currency,
+      owner_profile_id: g.owner_profile_id,
+      is_hidden: g.is_hidden,
+      user_id: g.user_id,
+      created_at: g.created_at,
+      updated_at: g.updated_at,
+      rsu: {
+        grantId: g.id,
+        company: g.company_name,
+        listed: g.listed,
+        securityId: g.security_id,
+        symbol: sec?.symbol ?? null,
+        grantDate: g.grant_date,
+        totalShares: Number(g.total_shares),
+        withholdingPct: Number(g.withholding_pct),
+        deliveredShares: c.deliveredShares,
+        estimatedShares: c.estimatedShares,
+        unvestedShares: c.unvestedShares,
+        nextVest: c.nextVest,
+        byQuarter: unvestedByQuarter(gv, today),
+        price,
+        priceDate,
+        stale: priceDate ? isStalePrice(priceDate, today) : true,
+        manual,
+        dueVests: gv.filter((v) => v.status === "pending" && v.vest_date <= today).length,
+      },
+    };
+  }) as unknown as Holding[];
+}
+
 export const portfolioQuery = queryOptions({
   queryKey: ["portfolio"],
   queryFn: async (): Promise<RawPortfolio> => {
-    const [{ data: auth }, profileRows, holdingRows, positions, installments, loans, loanEvents, policies] = await Promise.all([
+    const [{ data: auth }, profileRows, holdingRows, positions, rsuGrants, rsuVests, installments, loans, loanEvents, policies] = await Promise.all([
       supabase.auth.getUser(),
       must(supabase.from("profiles").select("*").order("created_at")),
       must(supabase.from("holdings").select("*").order("created_at")),
       must(supabase.from("equity_holdings").select("*").order("created_at")),
+      must(supabase.from("rsu_grants").select("*").order("created_at")),
+      must(supabase.from("rsu_vests").select("*").order("vest_date")),
       must(supabase.from("sip_installments").select("*").order("due_date", { ascending: false })),
       must(supabase.from("loans").select("*").order("created_at")),
       must(supabase.from("loan_events").select("*").order("event_date", { ascending: false })),
@@ -84,7 +151,7 @@ export const portfolioQuery = queryOptions({
       isMe: !!uid && p.owner_user_id === uid,
       writable: !!uid && (p.owner_user_id === uid || (p.owner_user_id === null && p.managed_by_user_id === uid)),
     }));
-    const holdings = [...holdingRows, ...(await equityRows(positions as Tables<"equity_holdings">[], todayISO()))] as Holding[];
+    const holdings = [...holdingRows, ...(await equityRows(positions as Tables<"equity_holdings">[], todayISO())), ...(await rsuRows(rsuGrants as Tables<"rsu_grants">[], rsuVests as Tables<"rsu_vests">[], todayISO()))] as Holding[];
     return { profiles, holdings, installments, loans, loanEvents, policies } as RawPortfolio;
   },
 });

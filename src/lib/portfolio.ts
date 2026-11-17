@@ -21,7 +21,28 @@ export interface EquityMeta {
   corporateAction: boolean;
   avgBuy: number | null;
 }
-export type Holding = Tables<"holdings"> & { equity?: EquityMeta };
+/** Extra facts for a row that comes from an RSU grant (`rsu_grants` plus its vests). */
+export interface RsuMeta {
+  grantId: string;
+  company: string;
+  listed: boolean;
+  securityId: string | null;
+  symbol: string | null;
+  grantDate: string;
+  totalShares: number;
+  withholdingPct: number;
+  deliveredShares: number;
+  estimatedShares: number;
+  unvestedShares: number;
+  nextVest: { vest_date: string; shares: number } | null;
+  byQuarter: Record<string, number>;
+  price: number | null;
+  priceDate: string | null;
+  stale: boolean;
+  manual: boolean;
+  dueVests: number;
+}
+export type Holding = Tables<"holdings"> & { equity?: EquityMeta; rsu?: RsuMeta };
 export type Installment = Tables<"sip_installments">;
 export type Loan = Tables<"loans">;
 export type LoanEvent = Tables<"loan_events">;

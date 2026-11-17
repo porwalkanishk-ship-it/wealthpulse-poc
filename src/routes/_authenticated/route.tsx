@@ -106,6 +106,10 @@ function Shell() {
     void supabase.rpc("check_cas_reminders").then(({ data }) => {
       if (data && data > 0) void qc.invalidateQueries({ queryKey: ["notifications"] });
     });
+    // RSU vest-due, yearly "has it listed?" and listing-match notifications for profiles this person can edit.
+    void supabase.rpc("check_rsu_notifications").then(({ data }) => {
+      if (data && data > 0) void qc.invalidateQueries({ queryKey: ["notifications"] });
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

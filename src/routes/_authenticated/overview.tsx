@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { usePortfolio } from "@/lib/data";
 import { useMoney } from "@/lib/use-money";
@@ -98,6 +99,8 @@ function Overview() {
         <FinancialCard holdings={holdings} compact={compact} />
         <TangibleCard holdings={holdings} full={full} />
       </div>
+
+      <RsuCard holdings={holdings} compact={compact} onOpen={(grantId) => open({ type: "rsu", ...(grantId ? { grantId } : {}) })} />
 
       {/* Liabilities */}
       <Panel>
@@ -311,5 +314,73 @@ function LoanTile({ loan, full }: { loan: ValuedLoan; full: Fmt }) {
         {p.months === null ? <span className="text-co ml-2">EMI doesn't cover interest</span> : null}
       </div>
     </Link>
+  );
+}
+
+/** Unvested RSUs: contingent future wealth. Never part of net worth. */
+function RsuCard({ holdings, compact, onOpen }: { holdings: ValuedHolding[]; compact: (n: number) => string; onOpen: (grantId?: string) => void }) {
+  const [pct, setPct] = useState(0);
+  const rows = holdings.filter((h) => h.cat === "rsu" && h.unvestedValue > 0);
+  if (rows.length === 0) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const shares = rows.reduce((s, r) => s + Number(r.unvested_quantity ?? 0), 0);
+  const value = rows.reduce((s, r) => s + r.unvestedValue, 0);
+  const next = rows
+    .flatMap((r) => (r.rsu?.nextVest ? [{ ...r.rsu.nextVest, company: r.name }] : []))
+    .filter((v) => v.vest_date >= today)
+    .sort((a, b) => a.vest_date.localeCompare(b.vest_date))[0];
+  const byQuarter: Record<string, number> = {};
+  for (const r of rows) {
+    const perShare = Number(r.unvested_quantity) > 0 ? r.unvestedValue / Number(r.unvested_quantity) : 0;
+    for (const [q, n] of Object.entries(r.rsu?.byQuarter ?? {})) byQuarter[q] = (byQuarter[q] ?? 0) + n * perShare;
+  }
+  const quarters = Object.entries(byQuarter).sort(([a], [b]) => a.localeCompare(b));
+  const factor = 1 + pct / 100;
+  return (
+    <Panel>
+      <PanelHeader title="RSUs: contingent future wealth">
+        <Badge tone="amber">not in net worth</Badge>
+        <Btn variant="ghost" size="sm" className="ml-auto" onClick={() => onOpen()}>
+          + RSU grant
+        </Btn>
+      </PanelHeader>
+      <div className="p-4 space-y-4">
+        <div className="grid sm:grid-cols-3 gap-4">
+          <div>
+            <div className="text-mut text-[11px] uppercase tracking-wider">Unvested shares</div>
+            <div className="n text-hi text-lg">{Math.round(shares).toLocaleString("en-IN")}</div>
+          </div>
+          <div>
+            <div className="text-mut text-[11px] uppercase tracking-wider">At today's price</div>
+            <div className="n text-hi text-lg">{compact(value)}</div>
+          </div>
+          <div>
+            <div className="text-mut text-[11px] uppercase tracking-wider">Next vest</div>
+            <div className="n text-hi text-lg">{next ? `${next.shares} on ${fmtMonthYear(next.vest_date)}` : "—"}</div>
+            {next ? <div className="text-[11px] text-mut">{next.company}</div> : null}
+          </div>
+        </div>
+        {quarters.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {quarters.map(([q, v]) => (
+              <span key={q} className="rounded-[4px] border border-line px-2 py-1 text-[11px]">
+                <span className="text-mut">{q}</span> <span className="n text-hi">{compact(v)}</span>
+              </span>
+            ))}
+          </div>
+        ) : null}
+        <div>
+          <div className="flex items-center justify-between text-[12px] text-mut">
+            <span>If the share price moved</span>
+            <span className="n text-hi">
+              {pct > 0 ? "+" : ""}
+              {pct}% → {compact(value * factor)}
+            </span>
+          </div>
+          <input type="range" min={-30} max={30} step={5} value={pct} onChange={(e) => setPct(Number(e.target.value))} className="w-full" aria-label="Illustrative share price change" />
+          <p className="text-[11px] text-mut">An illustration only. Contingent on continued employment and on shares actually vesting.</p>
+        </div>
+      </div>
+    </Panel>
   );
 }

@@ -6,6 +6,7 @@ import { EquityImportModal } from "./EquityImportModal";
 import { LoanModal } from "./LoanModal";
 import { PolicyModal } from "./PolicyModal";
 import { PrepayModal } from "./PrepayModal";
+import { RsuModal } from "./RsuModal";
 import { SipModal } from "./SipModal";
 
 export function Modals({ onSynced }: { onSynced: () => void }) {
@@ -16,6 +17,8 @@ export function Modals({ onSynced }: { onSynced: () => void }) {
       return <CasModal onClose={close} onImported={onSynced} />;
     case "equity":
       return <EquityModal key={modal.positionId ?? "new"} positionId={modal.positionId} onClose={close} onSaved={onSynced} />;
+    case "rsu":
+      return <RsuModal key={modal.grantId ?? "new"} grantId={modal.grantId} vestId={modal.vestId} onClose={close} onSaved={onSynced} />;
     case "equity-import":
       return <EquityImportModal onClose={close} onSaved={onSynced} />;
     case "asset":

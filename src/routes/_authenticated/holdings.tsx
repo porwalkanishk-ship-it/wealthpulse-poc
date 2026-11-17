@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { createFileRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { Pencil } from "lucide-react";
@@ -21,6 +23,10 @@ export const Route = createFileRoute("/_authenticated/holdings")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  validateSearch: (s: Record<string, unknown>): { vest?: string; grant?: string } => ({
+    ...(typeof s["vest"] === "string" ? { vest: s["vest"] } : {}),
+    ...(typeof s["grant"] === "string" ? { grant: s["grant"] } : {}),
+  }),
   component: HoldingsPage,
 });
 
@@ -30,6 +36,22 @@ function HoldingsPage() {
   const { scoped, portfolio, isLoading } = usePortfolio();
   const { full, compact, currency, fx } = useMoney();
   const { open, profile, lastSync } = useAppState();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  // Notification links: /holdings?grant=<id> or ?vest=<id> open the grant. A vest id is matched through the grant's vests.
+  useEffect(() => {
+    if (!portfolio || (!search.grant && !search.vest)) return;
+    void (async () => {
+      let gid = search.grant;
+      if (!gid && search.vest) {
+        const { data } = await supabase.from("rsu_vests").select("grant_id").eq("id", search.vest).maybeSingle();
+        gid = data?.grant_id;
+      }
+      if (gid) open({ type: "rsu", grantId: gid, ...(search.vest ? { vestId: search.vest } : {}) });
+      void navigate({ search: {}, replace: true });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.grant, search.vest, !!portfolio]);
 
   if (isLoading || !scoped || !portfolio) {
     return (
@@ -66,6 +88,9 @@ function HoldingsPage() {
           </Btn>
           <Btn variant="ghost" size="sm" onClick={() => open({ type: "equity" })}>
             + Stock
+          </Btn>
+          <Btn variant="ghost" size="sm" onClick={() => open({ type: "rsu" })}>
+            + RSU grant
           </Btn>
           <Btn variant="ghost" size="sm" onClick={() => open({ type: "equity-import" })}>
             Import stocks
@@ -162,10 +187,12 @@ function HoldingsPage() {
                   </tr>
                 ))}
                 {rsus.map((r) => (
-                  <tr key={r.id} className="border-b border-line/60 hover:bg-raised/40 cursor-pointer" onClick={() => open({ type: "asset", holdingId: r.id })}>
+                  <tr key={r.id} className="border-b border-line/60 hover:bg-raised/40 cursor-pointer" onClick={() => open(r.rsu ? { type: "rsu", grantId: r.rsu.grantId } : { type: "asset", holdingId: r.id })}>
                     <td className="px-4 py-2.5 font-sans text-[13px]">
                       {r.name}
                       {owner(r)}
+                      {r.rsu && r.rsu.estimatedShares > 0 ? <Badge tone="amber" className="ml-2 align-middle">{r.rsu.dueVests} vest{r.rsu.dueVests === 1 ? "" : "s"} to confirm · estimate</Badge> : null}
+                      {r.rsu?.manual && r.rsu.stale ? <Badge tone="amber" className="ml-2 align-middle">price is old</Badge> : null}
                       {r.unvestedValue > 0 ? (
                         <div className="n text-[11px] text-mut">
                           +{num(Number(r.unvested_quantity), 0)} unvested ≈ {compact(r.unvestedValue)}
