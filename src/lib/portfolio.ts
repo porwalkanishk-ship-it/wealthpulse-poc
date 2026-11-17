@@ -9,7 +9,19 @@ export type Profile = Tables<"profiles"> & {
   /** True for the signed-in user's own profile. */
   isMe: boolean;
 };
-export type Holding = Tables<"holdings">;
+/** Extra facts for a per-stock row that comes from `equity_holdings` rather than the `holdings` table. */
+export interface EquityMeta {
+  positionId: string;
+  securityId: string;
+  symbol: string;
+  exchange: string;
+  price: number | null;
+  priceDate: string | null;
+  stale: boolean;
+  corporateAction: boolean;
+  avgBuy: number | null;
+}
+export type Holding = Tables<"holdings"> & { equity?: EquityMeta };
 export type Installment = Tables<"sip_installments">;
 export type Loan = Tables<"loans">;
 export type LoanEvent = Tables<"loan_events">;
@@ -112,6 +124,7 @@ export function valueHolding(h: Holding, installments: Installment[], today: str
     }
     case "equity":
       if (h.quantity && h.unit_price) value = toInr(n(h.quantity) * n(h.unit_price));
+      if (h.quantity && h.unit_price && h.prev_nav) dayChange = toInr(n(h.quantity) * (n(h.unit_price) - n(h.prev_nav)));
       break;
     case "rsu":
       value = toInr(n(h.quantity) * n(h.unit_price));

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppStateProvider, useAppState } from "@/lib/app-state";
 import { syncPortfolio } from "@/lib/market.functions";
+import { refreshPrices, refreshSecurities } from "@/lib/securities.functions";
 import { todayISO } from "@/lib/dates";
 import { Header, Tabs } from "@/components/wp/Header";
 import { Modals } from "@/components/wp/modals/Modals";
@@ -66,12 +67,24 @@ function CasPrompt() {
 function Shell() {
   const qc = useQueryClient();
   const sync = useServerFn(syncPortfolio);
+  const loadSecurities = useServerFn(refreshSecurities);
+  const loadPrices = useServerFn(refreshPrices);
   const { setLastSync, setSyncing } = useAppState();
   const started = useRef(false);
 
   async function runSync(manual: boolean) {
     setSyncing(true);
     try {
+      // Company list (weekly) and stock prices run first; failures only produce a notice and never block the app.
+      try {
+        const list = await loadSecurities();
+        const px = await loadPrices();
+        if (px.updated) await qc.invalidateQueries({ queryKey: ["portfolio"] });
+        const warn = [...list.warnings, ...px.warnings];
+        if (manual && warn.length) toast.warning(warn[0]);
+      } catch {
+        if (manual) toast.error("Couldn't refresh stock prices right now. Showing the last known prices.");
+      }
       const res = await sync({ data: { today: todayISO() } });
       setLastSync({ at: new Date(), navDate: res.navDate });
       if (res.added || res.priced || res.navUpdated) await qc.invalidateQueries({ queryKey: ["portfolio"] });

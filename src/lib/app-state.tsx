@@ -4,6 +4,8 @@ import type { Category } from "./portfolio";
 
 export type ModalState =
   | { type: "cas" }
+  | { type: "equity"; positionId?: string }
+  | { type: "equity-import" }
   | { type: "asset"; holdingId?: string; category?: Category }
   | { type: "sip"; holdingId: string }
   | { type: "loan"; loanId?: string; kind?: string }

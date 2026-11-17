@@ -62,7 +62,13 @@ function HoldingsPage() {
           </span>
           <span className="ml-auto n text-hi hidden sm:inline">{full(marketTotal)}</span>
           <Btn variant="ghost" size="sm" onClick={() => open({ type: "asset", category: "mutual_fund" })}>
-            + Add
+            + Fund
+          </Btn>
+          <Btn variant="ghost" size="sm" onClick={() => open({ type: "equity" })}>
+            + Stock
+          </Btn>
+          <Btn variant="ghost" size="sm" onClick={() => open({ type: "equity-import" })}>
+            Import stocks
           </Btn>
         </PanelHeader>
         {funds.length + equities.length + rsus.length === 0 ? (
@@ -129,16 +135,29 @@ function HoldingsPage() {
                   </tr>
                 ) : null}
                 {equities.map((e) => (
-                  <tr key={e.id} className="border-b border-line/60 hover:bg-raised/40 cursor-pointer" onClick={() => open({ type: "asset", holdingId: e.id })}>
+                  <tr key={e.id} className="border-b border-line/60 hover:bg-raised/40 cursor-pointer" onClick={() => open(e.equity ? { type: "equity", positionId: e.equity.positionId } : { type: "asset", holdingId: e.id })}>
                     <td className="px-4 py-2.5 font-sans text-[13px]">
                       {e.name}
                       {owner(e)}
+                      {e.equity?.corporateAction ? <Badge tone="amber" className="ml-2 align-middle">possible corporate action — check your quantity</Badge> : null}
+                      {e.equity?.stale ? <Badge tone="amber" className="ml-2 align-middle">{e.equity.priceDate ? "price is stale" : "no price yet"}</Badge> : null}
                     </td>
-                    <td className="text-mut">{(e.subtitle ?? "").replace(/ demat$/i, "") || "—"}</td>
+                    <td className="text-mut">{e.equity ? `${e.equity.exchange}:${e.equity.symbol}` : (e.subtitle ?? "").replace(/ demat$/i, "") || "—"}</td>
                     <td className="text-right">{e.quantity ? num(Number(e.quantity), 0) : "—"}</td>
-                    <td className="text-right text-mut">{e.unit_price ? num(Number(e.unit_price), 2) : "—"}</td>
-                    <td className="text-right text-hi">{full(e.value)}</td>
-                    <td className="text-right text-mut">—</td>
+                    <td className="text-right text-mut">
+                      {e.unit_price ? num(Number(e.unit_price), 2) : "—"}
+                      {e.equity?.priceDate ? <div className="text-[10px]">as of {fmtDayMonYear(e.equity.priceDate)}</div> : null}
+                    </td>
+                    <td className="text-right text-hi">
+                      {full(e.value)}
+                      {e.equity?.avgBuy && e.equity.price ? (
+                        <div className={cn("text-[10px]", e.equity.price >= e.equity.avgBuy ? "text-em" : "text-co")}>
+                          {e.equity.price >= e.equity.avgBuy ? "+" : ""}
+                          {(((e.equity.price - e.equity.avgBuy) / e.equity.avgBuy) * 100).toFixed(1)}% vs cost
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className={cn("text-right", e.dayChange >= 0 ? "text-em" : "text-co")}>{e.equity && e.dayChange !== 0 ? full(e.dayChange, { sign: true }) : <span className="text-mut">—</span>}</td>
                     <td className="px-4" />
                   </tr>
                 ))}
