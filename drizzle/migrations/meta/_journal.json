@@ -36,6 +36,13 @@
       "when": 1794916655172,
       "tag": "0004_rsu_grants_and_vests",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794979917519,
+      "tag": "0005_receivables_notifications_settings",
+      "breakpoints": true
     }
   ]
 }

@@ -136,9 +136,11 @@ export type Database = {
           as_of: string
           cas_verified_at: string | null
           category: string
+          compounding_frequency: string | null
           created_at: string
           folio: string | null
           id: string
+          interest_type: string
           is_hidden: boolean
           isin: string | null
           linked_loan_id: string | null
@@ -176,9 +178,11 @@ export type Database = {
           as_of?: string
           cas_verified_at?: string | null
           category: string
+          compounding_frequency?: string | null
           created_at?: string
           folio?: string | null
           id?: string
+          interest_type?: string
           is_hidden?: boolean
           isin?: string | null
           linked_loan_id?: string | null
@@ -216,9 +220,11 @@ export type Database = {
           as_of?: string
           cas_verified_at?: string | null
           category?: string
+          compounding_frequency?: string | null
           created_at?: string
           folio?: string | null
           id?: string
+          interest_type?: string
           is_hidden?: boolean
           isin?: string | null
           linked_loan_id?: string | null
@@ -591,6 +597,7 @@ export type Database = {
         Row: {
           body: string | null
           created_at: string
+          dedupe_key: string | null
           id: string
           link: string | null
           read_at: string | null
@@ -601,6 +608,7 @@ export type Database = {
         Insert: {
           body?: string | null
           created_at?: string
+          dedupe_key?: string | null
           id?: string
           link?: string | null
           read_at?: string | null
@@ -611,6 +619,7 @@ export type Database = {
         Update: {
           body?: string | null
           created_at?: string
+          dedupe_key?: string | null
           id?: string
           link?: string | null
           read_at?: string | null
@@ -714,6 +723,41 @@ export type Database = {
           relationship?: string
         }
         Relationships: []
+      }
+      receivable_repayments: {
+        Row: {
+          amount: number
+          created_at: string
+          holding_id: string
+          id: string
+          note: string | null
+          repayment_date: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          holding_id: string
+          id?: string
+          note?: string | null
+          repayment_date: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          holding_id?: string
+          id?: string
+          note?: string | null
+          repayment_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receivable_repayments_holding_id_fkey"
+            columns: ["holding_id"]
+            isOneToOne: false
+            referencedRelation: "holdings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rsu_grants: {
         Row: {
@@ -980,6 +1024,33 @@ export type Database = {
           },
         ]
       }
+      user_settings: {
+        Row: {
+          email_notifications: boolean
+          email_unsubscribe_token: string
+          terms_accepted_at: string | null
+          terms_version: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          email_notifications?: boolean
+          email_unsubscribe_token?: string
+          terms_accepted_at?: string | null
+          terms_version?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          email_notifications?: boolean
+          email_unsubscribe_token?: string
+          terms_accepted_at?: string | null
+          terms_version?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -995,23 +1066,48 @@ export type Database = {
         }
         Returns: undefined
       }
+      _notify_once: {
+        Args: {
+          _body: string
+          _key: string
+          _link: string
+          _title: string
+          _type: string
+          _user: string
+        }
+        Returns: boolean
+      }
+      _profile_writable_by: {
+        Args: { _profile_id: string; _user: string }
+        Returns: boolean
+      }
       _try_complete_claim: { Args: { _request_id: string }; Returns: boolean }
+      accept_terms: { Args: { _version: string }; Returns: string }
       add_managed_profile: {
         Args: { _name: string; _relationship: string }
         Returns: string
       }
+      can_read_holding: { Args: { _holding_id: string }; Returns: boolean }
       can_read_row: {
         Args: { _is_hidden: boolean; _profile_id: string }
         Returns: boolean
       }
       can_read_rsu_grant: { Args: { _grant_id: string }; Returns: boolean }
       can_see_profile: { Args: { _profile_id: string }; Returns: boolean }
+      can_write_holding: { Args: { _holding_id: string }; Returns: boolean }
       can_write_profile: { Args: { _profile_id: string }; Returns: boolean }
       can_write_rsu_grant: { Args: { _grant_id: string }; Returns: boolean }
       cancel_join_request: { Args: { _request_id: string }; Returns: undefined }
       cas_next_import_date: { Args: { _profile_id: string }; Returns: string }
       check_cas_reminders: { Args: never; Returns: number }
+      check_cas_reminders_for: { Args: { _user: string }; Returns: number }
+      check_renewal_notifications: { Args: never; Returns: number }
+      check_renewal_notifications_for: {
+        Args: { _user: string }
+        Returns: number
+      }
       check_rsu_notifications: { Args: never; Returns: number }
+      check_rsu_notifications_for: { Args: { _user: string }; Returns: number }
       complete_onboarding: {
         Args: { _base_currency: string; _country: string; _full_name: string }
         Returns: string
@@ -1026,6 +1122,7 @@ export type Database = {
         Args: { _approve: boolean; _request_id: string }
         Returns: undefined
       }
+      delete_my_data: { Args: never; Returns: Json }
       gen_invite_code: { Args: never; Returns: string }
       get_invite_code: { Args: never; Returns: string }
       import_cas: {
@@ -1063,6 +1160,7 @@ export type Database = {
         Returns: string
       }
       rotate_invite_code: { Args: never; Returns: string }
+      run_daily_notifications: { Args: never; Returns: number }
       search_securities: {
         Args: { _limit?: number; _q: string }
         Returns: {
