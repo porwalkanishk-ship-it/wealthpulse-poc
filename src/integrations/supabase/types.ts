@@ -593,6 +593,24 @@ export type Database = {
           },
         ]
       }
+      notification_log: {
+        Row: {
+          created_at: string
+          dedupe_key: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dedupe_key: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dedupe_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string | null
@@ -1155,6 +1173,16 @@ export type Database = {
       my_household_id: { Args: never; Returns: string }
       normalize_company_name: { Args: { _name: string }; Returns: string }
       profile_household_id: { Args: { _profile_id: string }; Returns: string }
+      record_prepayment: {
+        Args: {
+          _amount: number
+          _event_date: string
+          _loan_id: string
+          _new_outstanding: number
+          _note?: string
+        }
+        Returns: string
+      }
       request_join: {
         Args: { _claim_profile_id: string; _code: string; _consent: boolean }
         Returns: string

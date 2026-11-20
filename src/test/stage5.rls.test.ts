@@ -107,6 +107,7 @@ describe.skipIf(!enabled)("stage 5 database rules", () => {
     for (const h of [householdId, outsiderHousehold]) if (h) await admin.from("households").delete().eq("id", h);
     await admin.from("join_requests").delete().in("requester_user_id", ids);
     await admin.from("notifications").delete().in("user_id", ids);
+    await admin.from("notification_log").delete().in("user_id", ids);
     await admin.from("user_settings").delete().in("user_id", ids);
     await admin.from("profiles").delete().in("owner_user_id", ids);
     await admin.from("profiles").delete().in("managed_by_user_id", ids);
@@ -218,6 +219,35 @@ describe.skipIf(!enabled)("stage 5 database rules", () => {
       expect(await owner.client.rpc("check_rsu_notifications").then((r) => r.data)).toBe(1);
     });
 
+    it("a deleted due-vest notification is never recreated", async () => {
+      const { data: g, error } = await owner.client
+        .from("rsu_grants")
+        .insert({ owner_profile_id: owner.profileId, company_name: "Vest Co", listed: true, grant_date: "2024-01-01", total_shares: 10, vesting_type: "custom" })
+        .select("id")
+        .single();
+      if (error) throw error;
+      const { data: v, error: e2 } = await owner.client.from("rsu_vests").insert({ grant_id: g.id, vest_date: istDate(-1), shares: 4 }).select("id").single();
+      if (e2) throw e2;
+      expect(await owner.client.rpc("check_rsu_notifications").then((r) => r.data)).toBe(1);
+      const [n] = await ownerNotifs("rsu_vest_due");
+      expect(n!.dedupe_key).toBe(`rsu_vest:${v.id}`);
+      const { error: e3 } = await owner.client.from("notifications").delete().eq("id", n!.id);
+      if (e3) throw e3;
+      // Even with the vest's own "notified" marker cleared, the log stops a second notification.
+      await admin.from("rsu_vests").update({ notified_at: null }).eq("id", v.id);
+      expect(await owner.client.rpc("check_rsu_notifications").then((r) => r.data)).toBe(0);
+      expect(await ownerNotifs("rsu_vest_due")).toEqual([]);
+    });
+
+    it("signed-in users cannot read or write the notification log", async () => {
+      const { error: readErr } = await owner.client.from("notification_log").select("dedupe_key");
+      expect(readErr).not.toBeNull();
+      const { error: writeErr } = await owner.client.from("notification_log").insert({ user_id: owner.id, dedupe_key: "x" });
+      expect(writeErr).not.toBeNull();
+      const { data: logged } = await admin.from("notification_log").select("dedupe_key").eq("user_id", owner.id);
+      expect((logged ?? []).length).toBeGreaterThan(0);
+    });
+
     it("renewal reminders go only to the owner, once each, and never come back after deletion", async () => {
       const { error: e1 } = await owner.client.from("policies").insert({ owner_profile_id: owner.profileId, kind: "term", name: "Hidden term plan", cover: 10000000, premium: 20000, frequency: "yearly", next_due: istDate(5), is_hidden: true });
       if (e1) throw e1;
@@ -267,8 +297,65 @@ describe.skipIf(!enabled)("stage 5 database rules", () => {
       expect(upd![0]!.email_notifications).toBe(true);
       const { data: other } = await member.client.from("user_settings").update({ email_notifications: false }).eq("user_id", owner.id).select("user_id");
       expect(other ?? []).toEqual([]);
+      const { data: before } = await admin.from("user_settings").select("email_unsubscribe_token").eq("user_id", owner.id).single();
       const { error } = await owner.client.from("user_settings").update({ email_unsubscribe_token: crypto.randomUUID() }).eq("user_id", owner.id);
-      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/permission denied/);
+      const { data: after } = await admin.from("user_settings").select("email_unsubscribe_token").eq("user_id", owner.id).single();
+      expect(after!.email_unsubscribe_token).toBe(before!.email_unsubscribe_token);
+    });
+  });
+
+  describe("record_prepayment", () => {
+    let loanId = "";
+    const asOf = istDate(-60);
+    const loanState = async () => {
+      const { data } = await admin.from("loans").select("outstanding, as_of").eq("id", loanId).single();
+      const { data: ev } = await admin.from("loan_events").select("id").eq("loan_id", loanId);
+      return { outstanding: Number(data!.outstanding), as_of: data!.as_of, events: (ev ?? []).length };
+    };
+    beforeAll(async () => {
+      const { data, error } = await owner.client
+        .from("loans")
+        .insert({ owner_profile_id: owner.profileId, kind: "home", name: "Test home loan", original_principal: 5000000, outstanding: 4000000, rate: 8.5, emi: 45000, emi_day: 5, as_of: asOf, is_hidden: true })
+        .select("id")
+        .single();
+      if (error) throw error;
+      loanId = data.id;
+    });
+    it("a member who cannot write the loan is refused and nothing changes", async () => {
+      for (const u of [member, leader, outsider]) {
+        const { error } = await u.client.rpc("record_prepayment", { _loan_id: loanId, _amount: 100000, _event_date: istDate(-1), _new_outstanding: 3900000 });
+        expect(error).not.toBeNull();
+      }
+      expect(await loanState()).toEqual({ outstanding: 4000000, as_of: asOf, events: 0 });
+    });
+    it("a future date is refused and nothing changes", async () => {
+      const { error } = await owner.client.rpc("record_prepayment", { _loan_id: loanId, _amount: 100000, _event_date: istDate(2), _new_outstanding: 3900000 });
+      expect(error?.message).toMatch(/future/);
+      expect(await loanState()).toEqual({ outstanding: 4000000, as_of: asOf, events: 0 });
+    });
+    it("a date before the loan's as-of date, a zero amount and a negative outstanding are refused", async () => {
+      const bad = [
+        { _amount: 100000, _event_date: istDate(-61), _new_outstanding: 3900000 },
+        { _amount: 0, _event_date: istDate(-1), _new_outstanding: 3900000 },
+        { _amount: 100000, _event_date: istDate(-1), _new_outstanding: -1 },
+      ];
+      for (const b of bad) {
+        const { error } = await owner.client.rpc("record_prepayment", { _loan_id: loanId, ...b });
+        expect(error).not.toBeNull();
+      }
+      expect(await loanState()).toEqual({ outstanding: 4000000, as_of: asOf, events: 0 });
+    });
+    it("records the prepayment and updates the loan together", async () => {
+      const date = istDate(-1);
+      const { data: eventId, error } = await owner.client.rpc("record_prepayment", { _loan_id: loanId, _amount: 100000, _event_date: date, _new_outstanding: 3900000, _note: "Bonus" });
+      if (error) throw error;
+      expect(await loanState()).toEqual({ outstanding: 3900000, as_of: date, events: 1 });
+      const { data: ev } = await admin.from("loan_events").select("*").eq("id", eventId as string).single();
+      expect(ev).toMatchObject({ kind: "prepayment", amount: 100000, event_date: date, note: "Bonus", owner_profile_id: owner.profileId, is_hidden: true, user_id: owner.id });
+      // The hidden loan's prepayment stays invisible to the household.
+      const { data: seen } = await member.client.from("loan_events").select("id").eq("loan_id", loanId);
+      expect(seen ?? []).toEqual([]);
     });
   });
 

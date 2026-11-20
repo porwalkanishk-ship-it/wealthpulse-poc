@@ -79,7 +79,7 @@ describe.skipIf(!enabled)("RSU grants and vests (database)", () => {
       .insert([
         { ...base, company_name: "Open Co", listed: true, security_id: secId, is_hidden: false },
         { ...base, company_name: "Hidden Co", listed: true, security_id: secId, is_hidden: true },
-        { ...base, company_name: `${TAG} Pvt Holdings Ltd`, listed: false, last_listing_check_at: new Date().toISOString(), is_hidden: false },
+        { ...base, company_name: `${TAG} Holdings Ltd`, listed: false, last_listing_check_at: new Date().toISOString(), is_hidden: false },
       ])
       .select("id, company_name");
     if (e3) throw e3;
@@ -104,6 +104,7 @@ describe.skipIf(!enabled)("RSU grants and vests (database)", () => {
     if (householdId) await admin.from("households").delete().eq("id", householdId);
     await admin.from("join_requests").delete().in("requester_user_id", ids);
     await admin.from("notifications").delete().in("user_id", ids);
+    await admin.from("notification_log").delete().in("user_id", ids);
     await admin.from("profiles").delete().in("owner_user_id", ids);
     for (const id of ids) await admin.auth.admin.deleteUser(id);
     await admin.from("securities").delete().eq("exchange", EXCHANGE);
@@ -148,7 +149,7 @@ describe.skipIf(!enabled)("RSU grants and vests (database)", () => {
     expect(await vestsSeen(owner)).toEqual([10, 20, 30]);
   });
   it("a vest cannot be moved onto someone else's grant", async () => {
-    const { data: other } = await member.client.from("rsu_grants").insert({ owner_profile_id: member.profileId, company_name: "M", grant_date: "2024-01-01", total_shares: 5, vesting_type: "custom" }).select("id").single();
+    const { data: other } = await member.client.from("rsu_grants").insert({ owner_profile_id: member.profileId, company_name: "M", listed: true, grant_date: "2024-01-01", total_shares: 5, vesting_type: "custom" }).select("id").single();
     const { data } = await owner.client.from("rsu_vests").update({ grant_id: other!.id }).eq("id", vestIds["20"]!).select("id");
     expect(data ?? []).toEqual([]);
   });

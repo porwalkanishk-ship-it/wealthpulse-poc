@@ -17,3 +17,6 @@
 
 ## Stage 3 — listed equities
 - [x] DB: securities, security_prices + latest_security_prices(), equity_holdings (holdings privacy), search_securities(); tests
+
+## Stage 5 — database groundwork
+- [x] CAS date fix, receivable repayments, notification log + renewal checks, user settings, delete_my_data, record_prepayment, daily pg_cron job; tests

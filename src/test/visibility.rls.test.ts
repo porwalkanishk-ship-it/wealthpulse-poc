@@ -89,6 +89,7 @@ describe.skipIf(!enabled)("household visibility (row-level security)", () => {
     if (householdId) await admin.from("households").delete().eq("id", householdId);
     await admin.from("join_requests").delete().in("requester_user_id", ids);
     await admin.from("notifications").delete().in("user_id", ids);
+    await admin.from("notification_log").delete().in("user_id", ids);
     await admin.from("profiles").delete().in("owner_user_id", ids);
     for (const id of ids) await admin.auth.admin.deleteUser(id);
   }, 60_000);
