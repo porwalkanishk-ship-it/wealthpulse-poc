@@ -6,11 +6,11 @@ import { Pencil } from "lucide-react";
 import { usePortfolio } from "@/lib/data";
 import { useMoney } from "@/lib/use-money";
 import { useAppState } from "@/lib/app-state";
-import { fmtDayMonYear, fmtMonDayYear, ordinal } from "@/lib/dates";
+import { daysBetween, fmtDayMonYear, fmtMonDayYear, ordinal } from "@/lib/dates";
 import { num } from "@/lib/format";
 import { CATEGORY_LABEL, GUARANTEED, type Category, type ValuedHolding } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
-import { Badge, Btn, Empty, LiveDot, Panel, PanelHeader, SectionTitle, Skeleton } from "@/components/wp/ui";
+import { Badge, Btn, Empty, Panel, PanelHeader, SectionTitle, Skeleton } from "@/components/wp/ui";
 
 export const Route = createFileRoute("/_authenticated/holdings")({
   head: () => ({
@@ -31,6 +31,17 @@ export const Route = createFileRoute("/_authenticated/holdings")({
 });
 
 type Fmt = (n: number, o?: { sign?: boolean; digits?: number; space?: boolean }) => string;
+
+/** Lets a clickable table row open with Enter or Space. */
+function rowKey(fn: () => void) {
+  return (e: React.KeyboardEvent) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      fn();
+    }
+  };
+}
 
 function HoldingsPage() {
   const { scoped, portfolio, isLoading } = usePortfolio();
@@ -78,9 +89,9 @@ function HoldingsPage() {
   return (
     <div className="px-4 md:px-6 pt-5 pb-16 space-y-5">
       <Panel id="market" className="scroll-mt-28">
-        <PanelHeader title="Market & Equity (Live)">
+        <PanelHeader title="Market & Equity">
           <span className="flex items-center gap-1.5 text-[11px] text-em n whitespace-nowrap">
-            <LiveDot pulse /> {navDate ? `NAV ${fmtDayMonYear(navDate)}` : "AMFI"}
+            {navDate ? `AMFI NAV as of ${fmtDayMonYear(navDate)}` : "AMFI NAV"}
           </span>
           <span className="ml-auto n text-hi hidden sm:inline">{full(marketTotal)}</span>
           <Btn variant="ghost" size="sm" onClick={() => open({ type: "asset", category: "mutual_fund" })}>
@@ -108,7 +119,7 @@ function HoldingsPage() {
                   <th className="text-left font-medium px-4 py-2">Scheme</th>
                   <th className="text-left font-medium">Folio/Broker</th>
                   <th className="text-right font-medium">Units</th>
-                  <th className="text-right font-medium">Live NAV</th>
+                  <th className="text-right font-medium">NAV</th>
                   <th className="text-right font-medium">Value</th>
                   <th className="text-right font-medium">Day P&amp;L</th>
                   <th className="text-right font-medium px-4">SIP</th>
@@ -118,7 +129,7 @@ function HoldingsPage() {
                 {funds.map((f) => {
                   const pending = f.installments.some((i) => i.status === "pending");
                   return (
-                    <tr key={f.id} className="border-b border-line/60 hover:bg-raised/40 cursor-pointer" onClick={() => open({ type: "asset", holdingId: f.id })}>
+                    <tr key={f.id} className="border-b border-line/60 hover:bg-raised/40 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-em" tabIndex={0} onClick={() => open({ type: "asset", holdingId: f.id })} onKeyDown={rowKey(() => open({ type: "asset", holdingId: f.id }))}>
                       <td className="px-4 py-2.5 font-sans text-[13px] max-w-[260px]">
                         <span className="truncate inline-block max-w-full align-bottom">{f.name.replace(/ - Direct( Plan)?( -)? Growth( Option)?/i, "").replace(/ Fund$/, "")}</span>
                         {owner(f)}
@@ -160,7 +171,7 @@ function HoldingsPage() {
                   </tr>
                 ) : null}
                 {equities.map((e) => (
-                  <tr key={e.id} className="border-b border-line/60 hover:bg-raised/40 cursor-pointer" onClick={() => open(e.equity ? { type: "equity", positionId: e.equity.positionId } : { type: "asset", holdingId: e.id })}>
+                  <tr key={e.id} className="border-b border-line/60 hover:bg-raised/40 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-em" tabIndex={0} onClick={() => open(e.equity ? { type: "equity", positionId: e.equity.positionId } : { type: "asset", holdingId: e.id })} onKeyDown={rowKey(() => open(e.equity ? { type: "equity", positionId: e.equity.positionId } : { type: "asset", holdingId: e.id }))}>
                     <td className="px-4 py-2.5 font-sans text-[13px]">
                       {e.name}
                       {owner(e)}
@@ -187,7 +198,7 @@ function HoldingsPage() {
                   </tr>
                 ))}
                 {rsus.map((r) => (
-                  <tr key={r.id} className="border-b border-line/60 hover:bg-raised/40 cursor-pointer" onClick={() => open(r.rsu ? { type: "rsu", grantId: r.rsu.grantId } : { type: "asset", holdingId: r.id })}>
+                  <tr key={r.id} className="border-b border-line/60 hover:bg-raised/40 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-em" tabIndex={0} onClick={() => open(r.rsu ? { type: "rsu", grantId: r.rsu.grantId } : { type: "asset", holdingId: r.id })} onKeyDown={rowKey(() => open(r.rsu ? { type: "rsu", grantId: r.rsu.grantId } : { type: "asset", holdingId: r.id }))}>
                     <td className="px-4 py-2.5 font-sans text-[13px]">
                       {r.name}
                       {owner(r)}
@@ -234,6 +245,10 @@ function HoldingsPage() {
                 </SectionTitle>
                 <div className="n text-[20px] sm:text-[22px] text-hi mt-2">{full(g.value)}</div>
                 <div className="n text-[11.5px] mt-1 text-mut truncate">{guaranteedLine(g, full)}</div>
+                <div className="text-[11px] mt-1 text-mut">
+                  {["epfo", "ppf", "nps", "fd"].includes(g.cat) ? <Badge tone="amber" className="mr-1.5 align-middle">estimate</Badge> : null}
+                  {manualAge(g.as_of)}
+                </div>
               </button>
             ))}
           </div>
@@ -279,6 +294,15 @@ function guaranteedLine(g: ValuedHolding, full: Fmt) {
   }
 }
 
+/** How old a value you entered yourself is, in plain words. */
+function manualAge(asOf: string) {
+  const d = daysBetween(asOf, new Date().toISOString().slice(0, 10));
+  if (d <= 0) return "entered today";
+  if (d < 31) return `entered ${d} day${d === 1 ? "" : "s"} ago`;
+  if (d < 365) return `entered ${Math.round(d / 30)} months ago`;
+  return `entered ${(d / 365).toFixed(1)} years ago`;
+}
+
 function ListOrEmpty({
   items,
   full,
@@ -313,6 +337,8 @@ function HoldingRow({ h, full, owner }: { h: ValuedHolding; full: Fmt; owner: Re
           {CATEGORY_LABEL[h.cat as Category]}
           {h.subtitle ? ` · ${h.subtitle}` : ""}
           {h.cat === "vehicle" && Number(h.rate) ? ` · −${Number(h.rate)}%/yr` : ""}
+          {h.cat === "receivable" && Number(h.rate) ? ` · ${h.interest_type === "compound" ? `compound ${h.compounding_frequency ?? "annual"}` : "simple"} ${Number(h.rate)}%` : ""}
+          {` · ${manualAge(h.as_of)}`}
         </div>
       </div>
       <div className="ml-auto text-right shrink-0">

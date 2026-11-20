@@ -64,7 +64,7 @@
   --ink: oklch(0.168 0.018 263.9);      /* #0B0F17 */
   --panel: oklch(0.205 0.026 263.8);    /* #111723 */
   --line: oklch(0.279 0.037 260.0);     /* #1E293B */
-  --mut: oklch(0.632 0.038 257.9);      /* #7C8BA1 */
+  --mut: oklch(0.68 0.038 257.9);       /* lighter for AA contrast on raised surfaces */
   --em: oklch(0.696 0.149 162.5);       /* #10B981 */
   --em-hi: oklch(0.773 0.153 163.2);    /* #34D399 */
   --co: oklch(0.637 0.208 25.3);        /* #EF4444 */

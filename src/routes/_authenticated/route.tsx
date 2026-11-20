@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePortfolio } from "@/lib/data";
 import { useServerFn } from "@tanstack/react-start";
@@ -71,9 +71,11 @@ function Shell() {
   const loadPrices = useServerFn(refreshPrices);
   const { setLastSync, setSyncing } = useAppState();
   const started = useRef(false);
+  const [syncFailed, setSyncFailed] = useState(false);
 
   async function runSync(manual: boolean) {
     setSyncing(true);
+    let failed = false;
     try {
       // Company list (weekly) and stock prices run first; failures only produce a notice and never block the app.
       try {
@@ -83,6 +85,7 @@ function Shell() {
         const warn = [...list.warnings, ...px.warnings];
         if (manual && warn.length) toast.warning(warn[0]);
       } catch {
+        failed = true;
         if (manual) toast.error("Couldn't refresh stock prices right now. Showing the last known prices.");
       }
       const res = await sync({ data: { today: todayISO() } });
@@ -90,10 +93,13 @@ function Shell() {
       if (res.added || res.priced || res.navUpdated) await qc.invalidateQueries({ queryKey: ["portfolio"] });
       if (res.added > 0) toast.success(`${res.added} SIP installment${res.added > 1 ? "s" : ""} added from AMFI NAV`);
       else if (manual) toast.success("NAVs are up to date");
+      if (res.failed.length) failed = true;
       if (res.failed.length) toast.error(`Couldn't fetch NAV for ${res.failed.length} fund${res.failed.length > 1 ? "s" : ""}`);
     } catch {
-      if (manual) toast.error("Live NAV feed is unavailable right now. Showing last known values.");
+      failed = true;
+      if (manual) toast.error("The NAV feed is unavailable right now. Showing last known values.");
     } finally {
+      setSyncFailed(failed);
       setSyncing(false);
     }
   }
@@ -117,6 +123,11 @@ function Shell() {
     <div className="min-h-screen flex flex-col bg-ink text-foreground text-[13px]">
       <Header />
       <Tabs onRefresh={() => void runSync(true)} />
+      {syncFailed ? (
+        <div role="status" className="bg-amber/10 border-b border-amber/30 px-4 md:px-6 py-2 text-[12.5px] text-amber">
+          Showing last known values. The latest prices or NAVs could not be fetched.
+        </div>
+      ) : null}
       <CasPrompt />
       <main className="flex-1 min-w-0">
         <Outlet />

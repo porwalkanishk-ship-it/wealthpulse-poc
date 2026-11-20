@@ -7,7 +7,7 @@ import { CATEGORY_LABEL, FINANCIAL, renewals, type Category, type ValuedHolding,
 import { fmtMonthYear } from "@/lib/dates";
 import { initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Avatar, Badge, Btn, Empty, LiveDot, Panel, PanelHeader, ProgressBar, SectionTitle, Skeleton } from "@/components/wp/ui";
+import { Avatar, Badge, Btn, Empty, Panel, PanelHeader, ProgressBar, SectionTitle, Skeleton } from "@/components/wp/ui";
 import { RenewalDateBadge } from "@/components/wp/RenewalBadge";
 import { MetricStripSkeleton } from "@/components/wp/MetricStripSkeleton";
 
@@ -76,7 +76,7 @@ function Overview() {
         </div>
         <div className="p-4 bg-em/10 max-lg:border-r">
           <SectionTitle className="text-em flex items-center gap-2">
-            <LiveDot pulse /> True Net Worth
+            True Net Worth
           </SectionTitle>
           <div className="n text-[22px] sm:text-[30px] leading-none font-semibold text-hi mt-2">{full(totals.net)}</div>
         </div>
@@ -194,9 +194,7 @@ function FinancialCard({ holdings, compact }: { holdings: ValuedHolding[]; compa
               >
                 <span>{r.cat === "life_policy" ? "Life Policies" : CATEGORY_LABEL[r.cat]}</span>
                 {r.cat === "mutual_fund" ? (
-                  <span className="ml-3 flex items-center gap-1.5 text-[11px] text-em n">
-                    <LiveDot /> AMFI live
-                  </span>
+                  <span className="ml-3 text-[11px] text-mut n">AMFI NAV, daily</span>
                 ) : r.cat === "rsu" ? (
                   <span className="ml-3 n text-[11px] text-mut">vested</span>
                 ) : r.cat === "life_policy" ? (

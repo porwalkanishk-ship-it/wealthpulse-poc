@@ -8,9 +8,9 @@ export const Route = createFileRoute("/_authenticated/insights")({
   head: () => ({
     meta: [
       { title: "Insights — WealthPulse" },
-      { name: "description", content: "Asset allocation, debt ratios, emergency runway and protection cover for your household." },
+      { name: "description", content: "Asset allocation, debt ratios, and protection cover for your household." },
       { property: "og:title", content: "Insights — WealthPulse" },
-      { property: "og:description", content: "Asset allocation, debt ratios, emergency runway and protection cover." },
+      { property: "og:description", content: "Asset allocation, debt ratios, and protection cover." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -39,7 +39,6 @@ function Insights() {
   const skipped = holdings.flatMap((h) => h.installments).filter((i) => i.status === "skipped").length;
   const ratios = [
     { label: "Debt-to-Asset", value: `${totals.gross ? ((totals.liabilities / totals.gross) * 100).toFixed(1) : "0.0"}%`, note: "Under 30% is healthy" },
-    { label: "Emergency runway", value: totals.emiOut ? `${(cash / totals.emiOut).toFixed(1)} mo` : "—", note: "Cash & bank ÷ monthly EMIs" },
     { label: "Term cover vs loans", value: totals.liabilities ? `${(term / totals.liabilities).toFixed(1)}×` : term ? "∞" : "—", note: `${compact(term)} term cover` },
     { label: "Health cover", value: compact(health), note: `${policies.filter((p) => p.kind === "health").length} policies` },
     { label: "Monthly SIPs", value: full(totals.sipIn), note: `${skipped} installment${skipped === 1 ? "" : "s"} skipped` },
