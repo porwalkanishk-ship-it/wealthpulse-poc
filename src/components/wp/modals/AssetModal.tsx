@@ -48,7 +48,7 @@ function defaultsFor(cat: Category): Form {
     case "mutual_fund":
       return { ...base, folio: "", units: "", scheme_code: "", sip_amount: "", sip_day: "5" };
     case "receivable":
-      return { ...base, subtitle: "Private receivable" };
+      return { ...base, subtitle: "Private receivable", interest_type: "simple", compounding_frequency: "annual" };
     case "life_policy":
       return { ...base, premium: "", next_due: "", maturity_date: "", subtitle: "Surrender value" };
     case "real_estate":
@@ -91,6 +91,8 @@ export function AssetModal({ holdingId, category, onClose, onSaved }: Props) {
       unit_price: numStr(existing.unit_price),
       price_currency: existing.price_currency,
       linked_loan_id: existing.linked_loan_id ?? "",
+      interest_type: existing.interest_type ?? "simple",
+      compounding_frequency: existing.compounding_frequency ?? "annual",
     };
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -158,6 +160,9 @@ export function AssetModal({ holdingId, category, onClose, onSaved }: Props) {
         unit_price: nOrNull("unit_price"),
         price_currency: f("price_currency") === "USD" ? "USD" : "INR",
         linked_loan_id: f("linked_loan_id") || null,
+        ...(cat === "receivable"
+          ? { interest_type: f("interest_type") === "compound" ? "compound" : "simple", compounding_frequency: f("interest_type") === "compound" ? f("compounding_frequency") || "annual" : null }
+          : {}),
         updated_at: new Date().toISOString(),
       };
       if (cat === "mutual_fund") {
@@ -284,6 +289,7 @@ export function AssetModal({ holdingId, category, onClose, onSaved }: Props) {
             </Field>
           )}
           <CategoryFields cat={cat} f={f} set={set} errors={errors} loans={portfolio?.loans ?? []} />
+          {cat === "receivable" && existing ? <RepaymentsPanel holdingId={existing.id} repayments={existing.repayments ?? []} onChanged={() => void invalidate()} /> : null}
           {existing ? (
             <div className="sm:col-span-2 rounded-[5px] border border-line bg-ink px-3 py-2.5 flex items-center justify-between">
               <span className="text-mut text-[12px]">Current value</span>
@@ -293,6 +299,59 @@ export function AssetModal({ holdingId, category, onClose, onSaved }: Props) {
         </div>
       ) : null}
     </Modal>
+  );
+}
+
+function RepaymentsPanel({ holdingId, repayments, onChanged }: { holdingId: string; repayments: NonNullable<import("@/lib/portfolio").Holding["repayments"]>; onChanged: () => void }) {
+  const { full } = useMoney();
+  const [date, setDate] = useState(todayISO());
+  const [amount, setAmount] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function add() {
+    const a = toNum(amount);
+    if (!(a > 0) || !date || date > todayISO()) return void toast.error("Enter an amount and a date that is not in the future");
+    setBusy(true);
+    const { error } = await supabase.from("receivable_repayments").insert({ holding_id: holdingId, repayment_date: date, amount: a });
+    setBusy(false);
+    if (error) return void toast.error(error.message);
+    setAmount("");
+    onChanged();
+    toast.success("Repayment recorded");
+  }
+  async function del(id: string) {
+    const { error } = await supabase.from("receivable_repayments").delete().eq("id", id);
+    if (error) return void toast.error(error.message);
+    onChanged();
+  }
+  return (
+    <div className="sm:col-span-2 rounded-[5px] border border-line p-3 space-y-2">
+      <div className="text-hi">Repayments received</div>
+      <p className="text-[11.5px] text-mut">Each repayment is applied to interest accrued so far first, then to principal. Interest then keeps accruing on the principal that is left.</p>
+      {repayments.length > 0 ? (
+        <div className="divide-y divide-line text-[12px]">
+          {repayments.map((r) => (
+            <div key={r.id} className="flex items-center gap-3 py-1.5">
+              <span className="n w-28">{r.repayment_date}</span>
+              <span className="n">{full(Number(r.amount))}</span>
+              <button type="button" className="ml-auto text-mut hover:text-co" onClick={() => void del(r.id)}>
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <div className="flex gap-2 items-end">
+        <Field label="Date">
+          <TextInput type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+        <Field label="Amount (₹)">
+          <TextInput inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </Field>
+        <Btn size="sm" onClick={() => void add()} disabled={busy}>
+          Add repayment
+        </Btn>
+      </div>
+    </div>
   );
 }
 
@@ -423,8 +482,23 @@ function CategoryFields({
       return (
         <>
           {money("amount", "Principal lent (₹)")}
-          {money("rate", "Interest % p.a.", "Optional, simple interest")}
+          {money("rate", "Interest % p.a.", "Leave blank for interest-free")}
           {date("as_of", "Lent on")}
+          <Field label="Interest type">
+            <SelectInput value={f("interest_type")} onChange={set("interest_type")}>
+              <option value="simple">Simple</option>
+              <option value="compound">Compound</option>
+            </SelectInput>
+          </Field>
+          {f("interest_type") === "compound" ? (
+            <Field label="Compounded">
+              <SelectInput value={f("compounding_frequency")} onChange={set("compounding_frequency")}>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="annual">Annually</option>
+              </SelectInput>
+            </Field>
+          ) : null}
         </>
       );
     default:

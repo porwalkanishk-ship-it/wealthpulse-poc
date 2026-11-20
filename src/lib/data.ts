@@ -133,13 +133,14 @@ async function rsuRows(grants: Tables<"rsu_grants">[], vests: Tables<"rsu_vests"
 export const portfolioQuery = queryOptions({
   queryKey: ["portfolio"],
   queryFn: async (): Promise<RawPortfolio> => {
-    const [{ data: auth }, profileRows, holdingRows, positions, rsuGrants, rsuVests, installments, loans, loanEvents, policies] = await Promise.all([
+    const [{ data: auth }, profileRows, holdingRows, positions, rsuGrants, rsuVests, repayments, installments, loans, loanEvents, policies] = await Promise.all([
       supabase.auth.getUser(),
       must(supabase.from("profiles").select("*").order("created_at")),
       must(supabase.from("holdings").select("*").order("created_at")),
       must(supabase.from("equity_holdings").select("*").order("created_at")),
       must(supabase.from("rsu_grants").select("*").order("created_at")),
       must(supabase.from("rsu_vests").select("*").order("vest_date")),
+      must(supabase.from("receivable_repayments").select("*").order("repayment_date")),
       must(supabase.from("sip_installments").select("*").order("due_date", { ascending: false })),
       must(supabase.from("loans").select("*").order("created_at")),
       must(supabase.from("loan_events").select("*").order("event_date", { ascending: false })),
@@ -151,7 +152,10 @@ export const portfolioQuery = queryOptions({
       isMe: !!uid && p.owner_user_id === uid,
       writable: !!uid && (p.owner_user_id === uid || (p.owner_user_id === null && p.managed_by_user_id === uid)),
     }));
-    const holdings = [...holdingRows, ...(await equityRows(positions as Tables<"equity_holdings">[], todayISO())), ...(await rsuRows(rsuGrants as Tables<"rsu_grants">[], rsuVests as Tables<"rsu_vests">[], todayISO()))] as Holding[];
+    const repByHolding = new Map<string, Tables<"receivable_repayments">[]>();
+    for (const r of repayments as Tables<"receivable_repayments">[]) repByHolding.set(r.holding_id, [...(repByHolding.get(r.holding_id) ?? []), r]);
+    const withRepayments = (holdingRows as Tables<"holdings">[]).map((h) => (h.category === "receivable" ? { ...h, repayments: repByHolding.get(h.id) ?? [] } : h));
+    const holdings = [...withRepayments, ...(await equityRows(positions as Tables<"equity_holdings">[], todayISO())), ...(await rsuRows(rsuGrants as Tables<"rsu_grants">[], rsuVests as Tables<"rsu_vests">[], todayISO()))] as Holding[];
     return { profiles, holdings, installments, loans, loanEvents, policies } as RawPortfolio;
   },
 });

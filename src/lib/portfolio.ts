@@ -1,3 +1,4 @@
+import { receivableState, type Compounding } from "./receivable";
 import type { Tables } from "@/integrations/supabase/types";
 import { addMonths, daysBetween, monthsBetween, yearsBetween } from "./dates";
 import { fdValue, growMonthly, projectLoan, type LoanProjection } from "./finance";
@@ -42,7 +43,8 @@ export interface RsuMeta {
   manual: boolean;
   dueVests: number;
 }
-export type Holding = Tables<"holdings"> & { equity?: EquityMeta; rsu?: RsuMeta };
+export type ReceivableRepaymentRow = Tables<"receivable_repayments">;
+export type Holding = Tables<"holdings"> & { equity?: EquityMeta; rsu?: RsuMeta; repayments?: ReceivableRepaymentRow[] };
 export type Installment = Tables<"sip_installments">;
 export type Loan = Tables<"loans">;
 export type LoanEvent = Tables<"loan_events">;
@@ -174,9 +176,15 @@ export function valueHolding(h: Holding, installments: Installment[], today: str
     case "vehicle":
       value = n(h.amount) * (1 - n(h.rate) / 100) ** Math.max(0, yearsBetween(h.as_of, today));
       break;
-    case "receivable":
-      if (h.rate) value = n(h.amount) * (1 + (n(h.rate) / 100) * Math.max(0, yearsBetween(h.as_of, today)));
+    case "receivable": {
+      const st = receivableState(
+        { principal: n(h.amount), rate: n(h.rate), lendDate: h.as_of, interestType: h.interest_type === "compound" ? "compound" : "simple", compounding: h.compounding_frequency as Compounding | null },
+        (h.repayments ?? []).map((r) => ({ repayment_date: r.repayment_date, amount: n(r.amount) })),
+        today,
+      );
+      value = st.value;
       break;
+    }
     default:
       break;
   }
