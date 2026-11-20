@@ -28,8 +28,8 @@ export function PrepayModal({ loanId, onClose }: { loanId: string; onClose: () =
   async function save() {
     if (!ok) return void toast.error(date > today ? "Pick today or an earlier date" : `Enter up to ${full(balAt)}`);
     setBusy(true);
-    const { error } = await supabase.from("loans").update({ outstanding: balAt - amt, as_of: date }).eq("id", loan!.id);
-    if (!error) await supabase.from("loan_events").insert({ loan_id: loan!.id, kind: "prepayment", amount: amt, event_date: date, note: note.trim().slice(0, 120) || null });
+    // One database step: the loan balance and the prepayment record are saved together or not at all.
+    const { error } = await supabase.rpc("record_prepayment", { _loan_id: loan!.id, _amount: amt, _event_date: date, _new_outstanding: balAt - amt, ...(note.trim() ? { _note: note.trim().slice(0, 120) } : {}) });
     setBusy(false);
     if (error) return void toast.error(error.message);
     await invalidate();

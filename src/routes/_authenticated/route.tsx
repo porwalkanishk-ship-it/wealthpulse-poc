@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePortfolio } from "@/lib/data";
@@ -9,8 +9,10 @@ import { AppStateProvider, useAppState } from "@/lib/app-state";
 import { syncPortfolio } from "@/lib/market.functions";
 import { refreshPrices, refreshSecurities } from "@/lib/securities.functions";
 import { todayISO } from "@/lib/dates";
+import { Btn } from "@/components/wp/ui";
 import { Header, Tabs } from "@/components/wp/Header";
 import { Modals } from "@/components/wp/modals/Modals";
+import { Footer, TERMS_VERSION } from "@/components/wp/Legal";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -129,10 +131,53 @@ function Shell() {
         </div>
       ) : null}
       <CasPrompt />
+      <TermsGate />
       <main className="flex-1 min-w-0">
         <Outlet />
       </main>
+      <Footer />
       <Modals onSynced={() => void runSync(false)} />
+    </div>
+  );
+}
+
+/** Asks for acceptance of the terms once (and again when the terms version changes). */
+function TermsGate() {
+  const { user } = Route.useRouteContext();
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const q = useQuery({
+    queryKey: ["user_settings", "terms"],
+    queryFn: async () => (await supabase.from("user_settings").select("terms_version").eq("user_id", user.id).maybeSingle()).data,
+  });
+  if (q.isLoading || q.data?.terms_version === TERMS_VERSION) return null;
+  async function accept() {
+    setBusy(true);
+    const { error } = await supabase.rpc("accept_terms", { _version: TERMS_VERSION });
+    setBusy(false);
+    if (error) return void toast.error(error.message);
+    await qc.invalidateQueries({ queryKey: ["user_settings"] });
+  }
+  return (
+    <div role="dialog" aria-modal="true" aria-labelledby="terms-title" className="fixed inset-0 z-[100] bg-black/70 grid place-items-center p-4">
+      <div className="bg-panel border border-line rounded-[8px] max-w-md p-5 space-y-3">
+        <h2 id="terms-title" className="text-hi text-base font-semibold">
+          Before you continue
+        </h2>
+        <p className="text-[13px] text-soft">WealthPulse is a tracking tool for your own records, not financial, tax or legal advice. Values are estimates. Please read how we handle your data and the terms of use.</p>
+        <p className="text-[13px]">
+          <Link to="/privacy" target="_blank" className="text-em underline">
+            Privacy
+          </Link>{" "}
+          ·{" "}
+          <Link to="/terms" target="_blank" className="text-em underline">
+            Terms
+          </Link>
+        </p>
+        <Btn onClick={() => void accept()} disabled={busy}>
+          I agree
+        </Btn>
+      </div>
     </div>
   );
 }

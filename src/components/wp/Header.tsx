@@ -90,6 +90,9 @@ function NotificationBell() {
           </div>
           <div className="max-h-80 overflow-y-auto">
             {items.length === 0 ? <div className="p-4 text-mut">Nothing yet.</div> : null}
+            <Link to="/notifications" onClick={() => setOpenMenu(false)} className="block px-3 py-2 text-[11.5px] text-em border-b border-line hover:bg-raised/60">
+              View all notifications
+            </Link>
             {items.map((n) => (
               <button
                 key={n.id}

@@ -55,3 +55,18 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Data sources and licensing
+
+Prices come from free public sources: AMFI (mutual fund NAVs), NSE (end-of-day files), the SEC company list, Twelve Data's free plan (US prices, 8 symbols per minute, 800 a day) and open.er-api.com (exchange rates). These are used for this family only. Before anyone outside the family uses the app, review each source's terms and decide on a licensed price feed.
+
+## Secrets
+
+- `SEC_CONTACT_EMAIL`: a contact address sent in the User-Agent when fetching the SEC company list. US securities are skipped until it is set.
+- `TWELVE_DATA_API_KEY`: US stock prices. Without it only NSE prices refresh.
+
+Never put keys in the repository or in chat; add them as secrets in Lovable.
+
+## Draft legal pages
+
+`/privacy` and `/terms` are draft wording and have not been reviewed by a lawyer.
