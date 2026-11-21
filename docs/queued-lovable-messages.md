@@ -2,13 +2,13 @@
 
 Send in this order. Each is database-only; the app code is written in this repo.
 
-## 1. Gold in grams (needed for the gold feature)
+## 1. Gold and silver in grams (needed for the metals feature)
 
 Database changes only, small. Keep all existing rows and tests passing.
 
-1. holdings: add gold_purity numeric null with a check (gold_purity is null or (gold_purity > 0 and gold_purity <= 24)), meaning carats (24, 22, 18). Existing rows stay null. For category 'gold', quantity will mean grams.
-2. New table commodity_prices: symbol text not null, price_date date not null, price numeric not null check (price > 0), currency text not null, source text not null, fetched_at timestamptz not null default now(), primary key (symbol, price_date). Row-level security on: any signed-in user can SELECT; only service_role can insert, update or delete (no write grants to anon or authenticated). No data. Symbol 'XAU_USD_OZ' is the price of one troy ounce of gold in USD.
-3. Tests: a signed-in user can read commodity_prices but cannot insert or update it; gold_purity rejects 0 and 25. Run the full suite, report every failure by name, regenerate types, do not touch app screens, list what you changed.
+1. holdings: add purity_fineness numeric null with a check (purity_fineness is null or (purity_fineness > 0 and purity_fineness <= 1000)), meaning parts per thousand (999, 916, 750 for gold; 999, 925 for silver). Existing rows stay null. For categories 'gold' and the new 'silver', quantity will mean grams. Confirm no check constraint or enum on holdings.category blocks the new value 'silver' and say what you found.
+2. New table commodity_prices: symbol text not null, price_date date not null, price numeric not null check (price > 0), currency text not null, source text not null, fetched_at timestamptz not null default now(), primary key (symbol, price_date). Row-level security on: any signed-in user can SELECT; only service_role can insert, update or delete (no write grants to anon or authenticated). No data. Symbols 'XAU_USD_OZ' and 'XAG_USD_OZ' are the price of one troy ounce of gold and silver in USD.
+3. Tests: a signed-in user can read commodity_prices but cannot insert or update it; purity_fineness rejects 0 and 1001, and a holding with category 'silver' can be inserted. Run the full suite, report every failure by name, regenerate types, do not touch app screens, list what you changed.
 
 ## 2. Tighten table access (hygiene)
 
